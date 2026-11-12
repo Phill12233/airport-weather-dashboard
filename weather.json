@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-12T12:59:07Z",
+  "updatedAt": "2026-11-12T13:00:00Z",
   "source": "Deutscher Wetterdienst CDC und MOSMIX L",
   "gasPathCleaningLimitC": 5.0,
   "airports": [
@@ -7,98 +7,12 @@
       "code": "FRA",
       "icao": "EDDF",
       "city": "Frankfurt",
-      "currentTemp": 9.0,
-      "currentTempTime": "2026-11-11T23:00:00Z",
-      "min24h": null,
-      "min24hTime": null,
-      "gasPathCleaning": "NO DATA",
-      "weatherStatus": "NO DATA",
-      "measurementStation": {
-        "stationId": "01420",
-        "name": "Frankfurt/Main                           Hessen",
-        "distanceKm": 3.2
-      },
-      "hourly": [],
-      "errors": [
-        "MOSMIX: HTTP Error 404: Not Found"
-      ]
-    },
-    {
-      "code": "HAM",
-      "icao": "EDDH",
-      "city": "Hamburg",
-      "currentTemp": 1.9,
-      "currentTempTime": "2026-11-11T23:00:00Z",
-      "min24h": null,
-      "min24hTime": null,
-      "gasPathCleaning": "NO DATA",
-      "weatherStatus": "NO DATA",
-      "measurementStation": {
-        "stationId": "01975",
-        "name": "Hamburg-Fuhlsbüttel                      Hamburg",
-        "distanceKm": 0.3
-      },
-      "hourly": [],
-      "errors": [
-        "MOSMIX: HTTP Error 404: Not Found"
-      ]
-    },
-    {
-      "code": "MUC",
-      "icao": "EDDM",
-      "city": "München",
-      "currentTemp": null,
-      "currentTempTime": null,
-      "min24h": null,
-      "min24hTime": null,
-      "gasPathCleaning": "NO DATA",
-      "weatherStatus": "NO DATA",
-      "measurementStation": null,
-      "hourly": [],
-      "errors": [
-        "CDC: Keine aktuelle CDC-Datei für Station 04584 gefunden.",
-        "MOSMIX: HTTP Error 404: Not Found"
-      ]
-    },
-    {
-      "code": "BER",
-      "icao": "EDDB",
-      "city": "Berlin Brandenburg",
-      "currentTemp": 3.4,
-      "currentTempTime": "2026-11-11T23:00:00Z",
-      "min24h": null,
-      "min24hTime": null,
-      "gasPathCleaning": "NO DATA",
-      "weatherStatus": "NO DATA",
-      "measurementStation": {
-        "stationId": "00427",
-        "name": "Berlin Brandenburg                       Brandenburg",
-        "distanceKm": 2.4
-      },
-      "hourly": [],
-      "errors": [
-        "MOSMIX: HTTP Error 404: Not Found"
-      ]
-    },
-    {
-      "code": "DUS",
-      "icao": "EDDL",
-      "city": "Düsseldorf",
-      "currentTemp": 5.3,
-      "currentTempTime": "2026-11-11T23:00:00Z",
-      "min24h": null,
-      "min24hTime": null,
-      "gasPathCleaning": "NO DATA",
-      "weatherStatus": "NO DATA",
-      "measurementStation": {
-        "stationId": "01078",
-        "name": "Düsseldorf                               Nordrhein-Westfalen",
-        "distanceKm": 0.7
-      },
-      "hourly": [],
-      "errors": [
-        "MOSMIX: HTTP Error 404: Not Found"
-      ]
+      "currentTemp": 8.4,
+      "currentTempTime": "2026-11-12T12:00:00Z",
+      "min24h": 3.1,
+      "min24hTime": "2026-11-13T05:00:00Z",
+      "gasPathCleaning": "NO GO",
+      "weatherStatus": "WATCH"
     }
   ]
 }
