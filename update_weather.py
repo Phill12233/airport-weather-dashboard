@@ -50,6 +50,13 @@ AIRPORTS = [
         "latitude": 51.2895,
         "longitude": 6.7668,
     },
+    {
+        "code": "STR",
+        "icao": "EDDS",
+        "city": "Stuttgart",
+        "latitude": 48.6899,
+        "longitude": 9.2219,
+    },
 ]
 
 OUTPUT_FILE = Path("weather.json")
