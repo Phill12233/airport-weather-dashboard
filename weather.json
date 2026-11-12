@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-12T13:00:00Z",
+  "updatedAt": "2026-11-12T13:20:06Z",
   "source": "Deutscher Wetterdienst CDC und MOSMIX L",
   "gasPathCleaningLimitC": 5.0,
   "airports": [
@@ -7,12 +7,139 @@
       "code": "FRA",
       "icao": "EDDF",
       "city": "Frankfurt",
-      "currentTemp": 8.4,
-      "currentTempTime": "2026-11-12T12:00:00Z",
-      "min24h": 3.1,
-      "min24hTime": "2026-11-13T05:00:00Z",
-      "gasPathCleaning": "NO GO",
-      "weatherStatus": "WATCH"
+      "currentTemp": 9.0,
+      "currentTempTime": "2026-11-11T23:00:00Z",
+      "min24h": null,
+      "min24hTime": null,
+      "forecastStart": null,
+      "forecastEnd": null,
+      "gasPathCleaning": "NO DATA",
+      "weatherStatus": "NO DATA",
+      "measurementStation": {
+        "stationId": "01420",
+        "name": "Frankfurt/Main",
+        "federalState": "Hessen                                   Frei",
+        "distanceKm": 3.2
+      },
+      "hourly": [],
+      "errors": [
+        "MOSMIX: HTTP Error 404: Not Found"
+      ]
+    },
+    {
+      "code": "HAM",
+      "icao": "EDDH",
+      "city": "Hamburg",
+      "currentTemp": 1.9,
+      "currentTempTime": "2026-11-11T23:00:00Z",
+      "min24h": null,
+      "min24hTime": null,
+      "forecastStart": null,
+      "forecastEnd": null,
+      "gasPathCleaning": "NO DATA",
+      "weatherStatus": "NO DATA",
+      "measurementStation": {
+        "stationId": "01975",
+        "name": "Hamburg-Fuhlsbüttel",
+        "federalState": "Hamburg                                  Frei",
+        "distanceKm": 0.3
+      },
+      "hourly": [],
+      "errors": [
+        "MOSMIX: HTTP Error 404: Not Found"
+      ]
+    },
+    {
+      "code": "MUC",
+      "icao": "EDDM",
+      "city": "München",
+      "currentTemp": 11.3,
+      "currentTempTime": "2026-11-11T23:00:00Z",
+      "min24h": null,
+      "min24hTime": null,
+      "forecastStart": null,
+      "forecastEnd": null,
+      "gasPathCleaning": "NO DATA",
+      "weatherStatus": "NO DATA",
+      "measurementStation": {
+        "stationId": "01262",
+        "name": "München-Flughafen",
+        "federalState": "Bayern                                   Frei",
+        "distanceKm": 2.1
+      },
+      "hourly": [],
+      "errors": [
+        "MOSMIX: HTTP Error 404: Not Found"
+      ]
+    },
+    {
+      "code": "BER",
+      "icao": "EDDB",
+      "city": "Berlin Brandenburg",
+      "currentTemp": 3.4,
+      "currentTempTime": "2026-11-11T23:00:00Z",
+      "min24h": null,
+      "min24hTime": null,
+      "forecastStart": null,
+      "forecastEnd": null,
+      "gasPathCleaning": "NO DATA",
+      "weatherStatus": "NO DATA",
+      "measurementStation": {
+        "stationId": "00427",
+        "name": "Berlin",
+        "federalState": "Brandenburg                       Brandenburg                              Frei",
+        "distanceKm": 2.4
+      },
+      "hourly": [],
+      "errors": [
+        "MOSMIX: HTTP Error 404: Not Found"
+      ]
+    },
+    {
+      "code": "DUS",
+      "icao": "EDDL",
+      "city": "Düsseldorf",
+      "currentTemp": 5.3,
+      "currentTempTime": "2026-11-11T23:00:00Z",
+      "min24h": null,
+      "min24hTime": null,
+      "forecastStart": null,
+      "forecastEnd": null,
+      "gasPathCleaning": "NO DATA",
+      "weatherStatus": "NO DATA",
+      "measurementStation": {
+        "stationId": "01078",
+        "name": "Düsseldorf",
+        "federalState": "Nordrhein-Westfalen                      Frei",
+        "distanceKm": 0.7
+      },
+      "hourly": [],
+      "errors": [
+        "MOSMIX: HTTP Error 404: Not Found"
+      ]
+    },
+    {
+      "code": "STR",
+      "icao": "EDDS",
+      "city": "Stuttgart",
+      "currentTemp": 11.1,
+      "currentTempTime": "2026-11-11T23:00:00Z",
+      "min24h": null,
+      "min24hTime": null,
+      "forecastStart": null,
+      "forecastEnd": null,
+      "gasPathCleaning": "NO DATA",
+      "weatherStatus": "NO DATA",
+      "measurementStation": {
+        "stationId": "04931",
+        "name": "Stuttgart-Echterdingen",
+        "federalState": "Baden-Württemberg                        Frei",
+        "distanceKm": 0.2
+      },
+      "hourly": [],
+      "errors": [
+        "MOSMIX: HTTP Error 404: Not Found"
+      ]
     }
   ]
 }
