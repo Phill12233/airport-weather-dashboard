@@ -1,21 +1,33 @@
-
 <!DOCTYPE html>
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0"
+>
+
 <title>Airport Weather Dashboard</title>
+
 <style>
 :root {
   --bg: #101827;
   --panel: #1b293b;
+  --panel-light: #223247;
+  --border: #34445a;
   --text: #f5f7fa;
   --muted: #a9b7c8;
   --green: #16a34a;
+  --yellow: #ca8a04;
   --red: #dc2626;
+  --blue: #2563eb;
   --gray: #64748b;
 }
-* { box-sizing: border-box; }
+
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   padding: 28px;
@@ -23,6 +35,7 @@ body {
   color: var(--text);
   font-family: Arial, sans-serif;
 }
+
 header {
   display: flex;
   justify-content: space-between;
@@ -31,8 +44,18 @@ header {
   gap: 12px;
   margin-bottom: 26px;
 }
-h1 { margin: 0; font-size: 27px; }
-.subtitle { color: var(--muted); margin-top: 7px; font-size: 13px; }
+
+h1 {
+  margin: 0;
+  font-size: 27px;
+}
+
+.subtitle {
+  color: var(--muted);
+  margin-top: 7px;
+  font-size: 13px;
+}
+
 .source {
   color: #86efac;
   border: 1px solid #287b50;
@@ -40,171 +63,611 @@ h1 { margin: 0; font-size: 27px; }
   border-radius: 20px;
   font-size: 12px;
 }
+
 .summary {
   background: var(--panel);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 18px;
   margin-bottom: 22px;
 }
-.summary h2 { margin: 0 0 12px; font-size: 16px; }
-.summary p { color: var(--muted); margin: 0; font-size: 13px; }
+
+.summary h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.summary p {
+  color: var(--muted);
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit,minmax(230px,1fr));
+  grid-template-columns:
+    repeat(auto-fit, minmax(245px, 1fr));
   gap: 16px;
 }
+
 .card {
   background: var(--panel);
-  border: 1px solid #34445a;
+  border: 1px solid var(--border);
   border-radius: 15px;
   padding: 20px;
 }
+
 .airport {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-.code { font-size: 24px; font-weight: bold; }
-.city { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+.code {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.city {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.icao {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 3px;
+}
+
 .temps {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin: 24px 0;
+  margin: 24px 0 10px;
 }
-.temp-label { color: var(--muted); font-size: 11px; }
-.temp-value { font-size: 29px; font-weight: bold; margin-top: 7px; }
-.status {
+
+.temp-panel {
+  background: var(--panel-light);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.temp-label {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.temp-value {
+  font-size: 27px;
+  font-weight: bold;
+  margin-top: 7px;
+}
+
+.temp-time {
+  min-height: 15px;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 6px;
+}
+
+.weather-status,
+.gaspath-status {
   padding: 11px;
   border-radius: 8px;
   font-weight: bold;
   font-size: 12px;
   text-align: center;
 }
-.status.green { background: #14532d; color: #bbf7d0; }
-.status.red { background: #7f1d1d; color: #fecaca; }
-.status.gray { background: #334155; color: #cbd5e1; }
+
+.weather-status {
+  margin-bottom: 8px;
+}
+
+.status-title {
+  display: block;
+  font-size: 9px;
+  margin-bottom: 4px;
+  opacity: 0.8;
+}
+
+.green {
+  background: #14532d;
+  color: #bbf7d0;
+}
+
+.yellow {
+  background: #713f12;
+  color: #fef08a;
+}
+
+.red {
+  background: #7f1d1d;
+  color: #fecaca;
+}
+
+.blue {
+  background: #1e3a8a;
+  color: #bfdbfe;
+}
+
+.gray {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+.details {
+  border-top: 1px solid var(--border);
+  margin-top: 14px;
+  padding-top: 12px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 6px;
+}
+
+.detail-row strong {
+  color: var(--text);
+  text-align: right;
+}
+
 footer {
   color: var(--muted);
   font-size: 11px;
   margin-top: 25px;
   line-height: 1.7;
 }
+
+.alert {
+  color: #fecaca;
+}
+
+@media (max-width: 600px) {
+  body {
+    padding: 16px;
+  }
+
+  .temps {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
 </head>
+
 <body>
 
 <header>
   <div>
     <h1>✈ Airport Weather Dashboard</h1>
-    <div class="subtitle">AIRPORT OPERATIONS · GASPATH CLEANING MONITOR</div>
+
+    <div class="subtitle">
+      AIRPORT OPERATIONS · GAS PATH CLEANING MONITOR
+    </div>
   </div>
-  <div class="source">DWD WEATHER DATA</div>
+
+  <div class="source">
+    DWD CDC + MOSMIX
+  </div>
 </header>
 
 <section class="summary">
-  <h2>Gaspath Cleaning – Gesamtübersicht</h2>
-  <p id="summary">Warte auf Wetterdaten ...</p>
+  <h2>Gas Path Cleaning – Gesamtübersicht</h2>
+
+  <p id="summary">
+    Warte auf Wetterdaten ...
+  </p>
 </section>
 
-<main class="grid" id="airports"></main>
+<main
+  class="grid"
+  id="airports"
+></main>
 
 <footer>
-  Datenquelle: Deutscher Wetterdienst (DWD)<br>
-  Grenzwert: 5 °C · Grün = mindestens 5 °C · Rot = unter 5 °C<br>
-  Letzter Datenabruf: <span id="updated">Noch keine Daten</span><br>
-  Hinweis: Bei fehlenden oder veralteten Daten wird kein grüner Status angezeigt.
+  Datenquelle: Deutscher Wetterdienst,
+  CDC-Stundenmessungen und MOSMIX L
+  <br>
+
+  Gas Path Cleaning:
+  Grün = 24-h-Minimum mindestens +5,0 °C;
+  Rot = unter +5,0 °C
+  <br>
+
+  Letzter Datenabruf:
+  <span id="updated">
+    Noch keine Daten
+  </span>
+  <br>
+
+  Hinweis: Bei fehlenden oder veralteten Daten
+  wird keine grüne Freigabe angezeigt.
 </footer>
 
 <script>
 const airports = [
-  {code:"FRA", city:"Frankfurt"},
-  {code:"MUC", city:"München"},
-  {code:"HAM", city:"Hamburg"},
-  {code:"DUS", city:"Düsseldorf"},
-  {code:"BER", city:"Berlin Brandenburg"}
+  {
+    code: "FRA",
+    city: "Frankfurt"
+  },
+  {
+    code: "HAM",
+    city: "Hamburg"
+  },
+  {
+    code: "MUC",
+    city: "München"
+  },
+  {
+    code: "BER",
+    city: "Berlin Brandenburg"
+  },
+  {
+    code: "DUS",
+    city: "Düsseldorf"
+  }
 ];
 
+const MAX_DATA_AGE_MINUTES = 90;
+
+function isNumber(value) {
+  return Number.isFinite(value);
+}
+
+function formatTemperature(value) {
+  if (!isNumber(value)) {
+    return "--";
+  }
+
+  return value.toFixed(1) + " °C";
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "Zeit unbekannt";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Zeit unbekannt";
+  }
+
+  return date.toLocaleString(
+    "de-DE",
+    {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    }
+  ) + " Uhr";
+}
+
+function dataAgeMinutes(updatedAt) {
+  if (!updatedAt) {
+    return Infinity;
+  }
+
+  const update = new Date(updatedAt);
+
+  if (Number.isNaN(update.getTime())) {
+    return Infinity;
+  }
+
+  return (
+    Date.now() - update.getTime()
+  ) / 60000;
+}
+
+function weatherPresentation(status) {
+  switch (status) {
+    case "SAFE":
+      return {
+        text: "🟢 SAFE",
+        css: "green"
+      };
+
+    case "WATCH":
+      return {
+        text: "🟡 WATCH",
+        css: "yellow"
+      };
+
+    case "WARNING":
+      return {
+        text: "🔴 WARNING",
+        css: "red"
+      };
+
+    case "CRITICAL":
+      return {
+        text: "🔵 CRITICAL",
+        css: "blue"
+      };
+
+    default:
+      return {
+        text: "⚪ NO DATA",
+        css: "gray"
+      };
+  }
+}
+
 function render(data) {
-  const container = document.getElementById("airports");
+  const container =
+    document.getElementById("airports");
+
   container.innerHTML = "";
 
-  let critical = 0;
-  let valid = 0;
+  const dataIsFresh =
+    dataAgeMinutes(data.updatedAt)
+    <= MAX_DATA_AGE_MINUTES;
+
+  let goCount = 0;
+  let noGoCount = 0;
+  let noDataCount = 0;
 
   airports.forEach(airport => {
     const item = (data.airports || []).find(
-      x => x.code === airport.code
+      value => value.code === airport.code
     );
 
-    let current = "--";
-    let minimum = "--";
-    let status = "KEINE DATEN";
-    let css = "gray";
+    const hasCurrentTemperature =
+      item
+      && isNumber(item.currentTemp);
 
-    if (item && Number.isFinite(item.currentTemp) &&
-        Number.isFinite(item.min24h)) {
-      current = item.currentTemp.toFixed(1) + " °C";
-      minimum = item.min24h.toFixed(1) + " °C";
-      status = item.min24h < 5
-        ? "ROT · GASPATH CLEANING"
-        : "GRÜN · KEIN GASPATH CLEANING";
-      css = item.min24h < 5 ? "red" : "green";
-      valid++;
-      if (item.min24h < 5) critical++;
+    const hasForecast =
+      item
+      && isNumber(item.min24h)
+      && item.min24hTime;
+
+    const valid =
+      hasCurrentTemperature
+      && hasForecast
+      && dataIsFresh;
+
+    let gasPathText =
+      "⚪ NO DATA · KEINE FREIGABE";
+
+    let gasPathCss = "gray";
+
+    if (valid && item.min24h >= 5) {
+      gasPathText =
+        "🟢 GO · GAS PATH CLEANING";
+
+      gasPathCss = "green";
+      goCount++;
+    } else if (valid && item.min24h < 5) {
+      gasPathText =
+        "🔴 NO GO · GAS PATH CLEANING";
+
+      gasPathCss = "red";
+      noGoCount++;
+    } else {
+      noDataCount++;
     }
 
-    const card = document.createElement("section");
+    const weather = weatherPresentation(
+      valid
+        ? item.weatherStatus
+        : "NO DATA"
+    );
+
+    const stationName =
+      item
+      && item.measurementStation
+      ? item.measurementStation.name
+      : "--";
+
+    const stationDistance =
+      item
+      && item.measurementStation
+      && isNumber(
+        item.measurementStation.distanceKm
+      )
+      ? item.measurementStation
+          .distanceKm
+          .toFixed(1)
+          + " km"
+      : "--";
+
+    const errorText =
+      item
+      && Array.isArray(item.errors)
+      && item.errors.length > 0
+      ? item.errors.join(" · ")
+      : "";
+
+    const card =
+      document.createElement("section");
+
     card.className = "card";
+
     card.innerHTML = `
       <div class="airport">
         <div>
-          <div class="code">${airport.code}</div>
-          <div class="city">${airport.city}</div>
+          <div class="code">
+            ${airport.code}
+          </div>
+
+          <div class="city">
+            ${airport.city}
+          </div>
+
+          <div class="icao">
+            ${item?.icao || "--"}
+          </div>
         </div>
+
         <div>✈</div>
       </div>
+
       <div class="temps">
-        <div>
-          <div class="temp-label">AKTUELL</div>
-          <div class="temp-value">${current}</div>
+        <div class="temp-panel">
+          <div class="temp-label">
+            AKTUELL GEMESSEN
+          </div>
+
+          <div class="temp-value">
+            ${formatTemperature(
+              item?.currentTemp
+            )}
+          </div>
+
+          <div class="temp-time">
+            ${formatDateTime(
+              item?.currentTempTime
+            )}
+          </div>
         </div>
-        <div>
-          <div class="temp-label">MINIMUM 24H</div>
-          <div class="temp-value">${minimum}</div>
+
+        <div class="temp-panel">
+          <div class="temp-label">
+            MINIMUM NÄCHSTE 24H
+          </div>
+
+          <div class="temp-value">
+            ${formatTemperature(
+              item?.min24h
+            )}
+          </div>
+
+          <div class="temp-time">
+            erwartet:
+            ${formatDateTime(
+              item?.min24hTime
+            )}
+          </div>
         </div>
       </div>
-      <div class="status ${css}">${status}</div>
+
+      <div class=
+        "weather-status ${weather.css}"
+      >
+        <span class="status-title">
+          WETTERSTATUS
+        </span>
+
+        ${weather.text}
+      </div>
+
+      <div class=
+        "gaspath-status ${gasPathCss}"
+      >
+        <span class="status-title">
+          GAS PATH CLEANING
+        </span>
+
+        ${gasPathText}
+      </div>
+
+      <div class="details">
+        <div class="detail-row">
+          <span>Messstation</span>
+
+          <strong>
+            ${stationName}
+          </strong>
+        </div>
+
+        <div class="detail-row">
+          <span>Entfernung</span>
+
+          <strong>
+            ${stationDistance}
+          </strong>
+        </div>
+
+        ${
+          errorText
+          ? `
+            <div class="detail-row alert">
+              <span>Hinweis</span>
+
+              <strong>
+                ${errorText}
+              </strong>
+            </div>
+          `
+          : ""
+        }
+      </div>
     `;
+
     container.appendChild(card);
   });
 
-  document.getElementById("summary").textContent =
-    valid === 0
-      ? "Noch keine gültigen Wetterdaten verfügbar."
-      : `${critical} von ${valid} Airports liegen unter 5 °C.`;
+  let summaryText;
 
-  document.getElementById("updated").textContent =
-    data.updatedAt
-      ? new Date(data.updatedAt).toLocaleString("de-DE")
+  if (!dataIsFresh) {
+    summaryText =
+      "Wetterdaten sind älter als "
+      + MAX_DATA_AGE_MINUTES
+      + " Minuten. Keine Gas-Path-Freigabe.";
+  } else {
+    summaryText =
+      `${goCount} Airport(s) GO · `
+      + `${noGoCount} Airport(s) NO GO · `
+      + `${noDataCount} ohne gültige Daten.`;
+  }
+
+  document
+    .getElementById("summary")
+    .textContent = summaryText;
+
+  document
+    .getElementById("updated")
+    .textContent =
+      data.updatedAt
+      ? formatDateTime(data.updatedAt)
       : "Noch keine Daten";
 }
 
 async function loadWeather() {
   try {
-    const response = await fetch("./weather.json?t=" + Date.now());
-    if (!response.ok) throw new Error("Wetterdatei nicht verfügbar");
+    const response = await fetch(
+      "./weather.json?t=" + Date.now(),
+      {
+        cache: "no-store"
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        "Wetterdatei nicht verfügbar"
+      );
+    }
+
     const data = await response.json();
+
     render(data);
+
   } catch (error) {
-    render({airports: []});
-    document.getElementById("updated").textContent =
-      "Wetterdaten derzeit nicht verfügbar";
+    render({
+      updatedAt: null,
+      airports: []
+    });
+
+    document
+      .getElementById("updated")
+      .textContent =
+        "Wetterdaten derzeit nicht verfügbar";
   }
 }
 
 loadWeather();
-setInterval(loadWeather, 5 * 60 * 1000);
+
+setInterval(
+  loadWeather,
+  5 * 60 * 1000
+);
 </script>
+
 </body>
 </html>
