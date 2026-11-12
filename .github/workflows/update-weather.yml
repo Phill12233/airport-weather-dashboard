@@ -1,1 +1,47 @@
+name: Update DWD weather data
 
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "17,47 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-dwd-weather
+  cancel-in-progress: false
+
+jobs:
+  update-weather:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: DWD-Daten abrufen
+        run: python update_weather.py
+
+      - name: weather.json anzeigen
+        run: cat weather.json
+
+      - name: Änderungen speichern
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add weather.json
+
+          if git diff --cached --quiet; then
+            echo "Keine Änderungen an weather.json"
+          else
+            git commit -m "Update DWD weather data"
+            git push
+          fi
