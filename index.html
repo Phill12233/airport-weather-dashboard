@@ -83,7 +83,7 @@ h1 {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(265px, 1fr));
   gap: 16px;
 }
 
@@ -159,7 +159,8 @@ h1 {
 }
 
 .weather-status,
-.gaspath-status {
+.gaspath-status,
+.fueldrain-status {
   margin-bottom: 8px;
 }
 
@@ -193,6 +194,52 @@ h1 {
 .gray {
   background: #334155;
   color: #cbd5e1;
+}
+
+/* 4-Tage Forecast Chart Box */
+.chart-box {
+  background: var(--panel-light);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 10px 6px;
+  margin-top: 4px;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.chart-range {
+  color: var(--text);
+  font-weight: bold;
+}
+
+.chart-svg {
+  width: 100%;
+  height: 112px;
+  display: block;
+}
+
+.chart-legend {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.legend-5 {
+  color: #4ade80;
+}
+
+.legend-0 {
+  color: #facc15;
 }
 
 .details {
@@ -374,29 +421,163 @@ function weatherPresentation(status) {
 }
 
 /* --------------------------------------------------------
-   Live DWD ICON-D2 Fallback im Browser (wenn GitHub Action verzögert)
+   SVG 4-Tage-Temperaturverlauf inkl. 0°C & +5°C Linien
+-------------------------------------------------------- */
+
+function buildForecastChartHtml(hourly, airportCode) {
+  const points = (hourly || []).filter(
+    p => p && p.time && isNumber(p.temperature)
+  );
+
+  if (points.length < 2) {
+    return `
+      <div class="chart-box">
+        <div class="chart-header">
+          <span>TEMPERATURVERLAUF (4 TAGE)</span>
+          <span>--</span>
+        </div>
+        <div style="font-size:10px; color:var(--muted); text-align:center; padding:28px 0;">
+          Keine 4-Tage-Verlaufsdaten verfügbar
+        </div>
+      </div>
+    `;
+  }
+
+  const temps = points.map(p => p.temperature);
+  const rawMin = Math.min(...temps);
+  const rawMax = Math.max(...temps);
+
+  // Y-Achse immer so skalieren, dass 0°C und +5°C sichtbar bleiben
+  const minVal = Math.floor(Math.min(rawMin, -1) - 1);
+  const maxVal = Math.ceil(Math.max(rawMax, 6) + 1);
+  const span = Math.max(maxVal - minVal, 1);
+
+  const W = 280;
+  const H = 112;
+  const padL = 24;
+  const padR = 8;
+  const padT = 8;
+  const padB = 18;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  const yForTemp = (t) => padT + ((maxVal - t) / span) * plotH;
+  const xForIdx = (i) => padL + (i / (points.length - 1)) * plotW;
+
+  const y5 = yForTemp(5.0);
+  const y0 = yForTemp(0.0);
+
+  // Pfad der Temperaturkurve
+  const lineCoords = points.map((p, i) => {
+    const x = xForIdx(i).toFixed(1);
+    const y = yForTemp(p.temperature).toFixed(1);
+    return `${i === 0 ? "M" : "L"}${x},${y}`;
+  }).join(" ");
+
+  // Fläche unterhalb der Kurve bis zur 0°C-Linie (oder Boden)
+  const baseLineY = Math.min(Math.max(y0, padT), padT + plotH).toFixed(1);
+  const areaCoords =
+    `${lineCoords} L${xForIdx(points.length - 1).toFixed(1)},${baseLineY} ` +
+    `L${xForIdx(0).toFixed(1)},${baseLineY} Z`;
+
+  // Vertikale Tageswechsel (00:00 Uhr) & Wochentags-Labels
+  let dayMarkers = "";
+  let lastDay = "";
+  points.forEach((p, i) => {
+    const d = new Date(p.time);
+    const dayKey = d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+    const weekday = d.toLocaleDateString("de-DE", { weekday: "short" }).replace(".", "");
+    const x = xForIdx(i);
+
+    if (dayKey !== lastDay) {
+      if (i > 0) {
+        dayMarkers += `<line x1="${x.toFixed(1)}" y1="${padT}" x2="${x.toFixed(1)}" y2="${padT + plotH}" stroke="#34445a" stroke-width="1" />`;
+      }
+      if (x < W - 26) {
+        dayMarkers += `<text x="${(x + 3).toFixed(1)}" y="${H - 4}" fill="#a9b7c8" font-size="8.5">${weekday}</text>`;
+      }
+      lastDay = dayKey;
+    }
+  });
+
+  const gradId = `tempGrad_${airportCode}`;
+
+  return `
+    <div class="chart-box">
+      <div class="chart-header">
+        <span>4-TAGE VERLAUF</span>
+        <span class="chart-range">Min ${rawMin.toFixed(1)}° / Max ${rawMax.toFixed(1)}°</span>
+      </div>
+
+      <svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.32" />
+            <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.02" />
+          </linearGradient>
+        </defs>
+
+        <!-- Tageslinien & Wochentage -->
+        ${dayMarkers}
+
+        <!-- +5°C Referenzlinie (Gas Path Limit) -->
+        <line x1="${padL}" y1="${y5.toFixed(1)}" x2="${W - padR}" y2="${y5.toFixed(1)}"
+              stroke="#4ade80" stroke-width="1" stroke-dasharray="3,2" />
+        <text x="2" y="${(y5 + 3).toFixed(1)}" fill="#4ade80" font-size="8.5" font-weight="bold">+5°</text>
+
+        <!-- 0°C Referenzlinie (Frostgrenze) -->
+        <line x1="${padL}" y1="${y0.toFixed(1)}" x2="${W - padR}" y2="${y0.toFixed(1)}"
+              stroke="#facc15" stroke-width="1.1" stroke-dasharray="3,2" />
+        <text x="5" y="${(y0 + 3).toFixed(1)}" fill="#facc15" font-size="8.5" font-weight="bold">0°</text>
+
+        <!-- Temperaturfläche & -linie -->
+        <path d="${areaCoords}" fill="url(#${gradId})" />
+        <path d="${lineCoords}" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linejoin="round" />
+      </svg>
+
+      <div class="chart-legend">
+        <span class="legend-5">--- +5 °C (Gas Path)</span>
+        <span class="legend-0">--- 0 °C (Frost)</span>
+      </div>
+    </div>
+  `;
+}
+
+/* --------------------------------------------------------
+   Live DWD ICON Fallback im Browser (wenn GitHub Action verzögert)
 -------------------------------------------------------- */
 
 async function fetchLiveDwdIconFallback() {
   const results = await Promise.all(
     airports.map(async (ap) => {
-      const url = `https://api.open-meteo.com/v1/dwd-icon?latitude=${ap.lat}&longitude=${ap.lon}&current=temperature_2m&hourly=temperature_2m&forecast_days=2&timezone=Europe%2FBerlin`;
+      const url = `https://api.open-meteo.com/v1/dwd-icon?latitude=${ap.lat}&longitude=${ap.lon}&current=temperature_2m&hourly=temperature_2m&forecast_days=5&timezone=Europe%2FBerlin`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Live-API Fehler für ${ap.code}`);
       const json = await res.json();
 
       const now = new Date();
-      const end = new Date(now.getTime() + 24 * 3600 * 1000);
+      const end24h = new Date(now.getTime() + 24 * 3600 * 1000);
+      const end4d = new Date(now.getTime() + 96 * 3600 * 1000);
 
       let min24h = Infinity;
       let min24hTime = null;
       let nightMin = Infinity;
       let nightMinTime = null;
+      const hourly4d = [];
 
       json.hourly.time.forEach((tStr, idx) => {
         const dt = new Date(tStr);
         const temp = json.hourly.temperature_2m[idx];
-        if (dt >= now && dt <= end && isNumber(temp)) {
+        if (!isNumber(temp)) return;
+
+        if (dt >= now && dt <= end4d) {
+          hourly4d.push({
+            time: dt.toISOString(),
+            temperature: Number(temp.toFixed(1))
+          });
+        }
+
+        if (dt >= now && dt <= end24h) {
           if (temp < min24h) {
             min24h = temp;
             min24hTime = dt.toISOString();
@@ -425,8 +606,9 @@ async function fetchLiveDwdIconFallback() {
         nightMin: Number(nightMin.toFixed(1)),
         nightMinTime,
         weatherStatus: computeWeatherStatus(nightMin),
+        hourly: hourly4d,
         measurementStation: {
-          name: `${ap.city} (DWD ICON-D2 Live)`,
+          name: `${ap.city} (DWD ICON Live)`,
           distanceKm: 0.0
         },
         errors: []
@@ -466,7 +648,6 @@ function render(data) {
     const hasCurrentTemperature = item && isNumber(item.currentTemp);
     const hasForecast = item && isNumber(item.min24h) && item.min24hTime;
 
-    // Maßgeblich für Nacht-Operationen: Nacht-Minimum (20–06 Uhr), Fallback auf 24h-Minimum
     const relevantMin = item && isNumber(item.nightMin)
       ? item.nightMin
       : item?.min24h;
@@ -546,6 +727,15 @@ function render(data) {
       : "";
 
     /* ----------------------------------------------------
+       4-Tage-Temperaturverlauf Chart
+    ---------------------------------------------------- */
+
+    const forecastChartHtml = buildForecastChartHtml(
+      valid ? item.hourly : [],
+      airport.code
+    );
+
+    /* ----------------------------------------------------
        Karte erzeugen
     ---------------------------------------------------- */
 
@@ -590,6 +780,8 @@ function render(data) {
         <span class="status-title">FUEL DRAINING (NACHT 20–06H)</span>
         ${fuelDrainText}
       </div>
+
+      ${forecastChartHtml}
 
       <div class="details">
         <div class="detail-row">
@@ -664,9 +856,16 @@ async function loadWeather() {
     const data = await response.json();
     const age = dataAgeMinutes(data.updatedAt);
 
+    // Prüfen, ob alle 6 Flughäfen gültige Werte inkl. 4-Tage-Verlauf haben
     const allComplete = airports.every(ap => {
       const found = (data.airports || []).find(a => a.code === ap.code);
-      return found && isNumber(found.currentTemp) && isNumber(found.min24h);
+      return (
+        found &&
+        isNumber(found.currentTemp) &&
+        isNumber(found.min24h) &&
+        Array.isArray(found.hourly) &&
+        found.hourly.length > 30
+      );
     });
 
     if (!allComplete || age > LIVE_FALLBACK_AFTER_MINUTES) {
