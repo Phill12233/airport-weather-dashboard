@@ -1,8 +1,9 @@
 {
-  "updatedAt": "2026-11-13T07:33:07Z",
+  "updatedAt": "2026-11-13T08:11:11Z",
   "source": "Deutscher Wetterdienst POI und MOSMIX_L",
   "gasPathCleaningLimitC": 5.0,
-  "maximumMeasurementAgeHours": 3,
+  "nightWindowLocal": "20:00-06:00 Europe/Berlin",
+  "maximumMeasurementAgeHours": 4,
   "airports": [
     {
       "code": "FRA",
@@ -1353,6 +1354,8 @@
       "currentTempAgeHours": null,
       "min24h": null,
       "min24hTime": null,
+      "nightMin": null,
+      "nightMinTime": null,
       "forecastStart": null,
       "forecastEnd": null,
       "gasPathCleaning": "NO DATA",
