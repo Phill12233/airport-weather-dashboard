@@ -1,626 +1,1368 @@
-import csv
-import io
-import json
-import math
-import urllib.request
-import zipfile
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from zoneinfo import ZoneInfo
-from xml.etree import ElementTree as ET
-
-
-# ============================================================
-# KONFIGURATION
-# ============================================================
-
-AIRPORTS = [
+{
+  "updatedAt": "2026-11-13T07:01:45Z",
+  "source": "Deutscher Wetterdienst POI und MOSMIX_L",
+  "gasPathCleaningLimitC": 5.0,
+  "maximumMeasurementAgeHours": 3,
+  "airports": [
     {
-        "code": "FRA",
-        "icao": "EDDF",
-        "city": "Frankfurt",
-        "wmo_id": "10637",
-        "station_name": "Frankfurt/Main Flughafen",
+      "code": "FRA",
+      "icao": "EDDF",
+      "city": "Frankfurt",
+      "currentTemp": 1.0,
+      "currentTempTime": "2026-11-13T07:00:00Z",
+      "currentTempAgeHours": 0.0,
+      "min24h": -0.7,
+      "min24hTime": "2026-11-14T04:00:00Z",
+      "forecastStart": "2026-11-13T08:00:00Z",
+      "forecastEnd": "2026-11-14T07:00:00Z",
+      "gasPathCleaning": "NO GO",
+      "weatherStatus": "WARNING",
+      "measurementStation": {
+        "stationId": "10637",
+        "name": "Frankfurt/Main Flughafen (ICON-D2)",
+        "distanceKm": 0.0
+      },
+      "mosmixStation": {
+        "id": "10637 (EDDF)",
+        "distanceKm": 0.0,
         "latitude": 50.0379,
-        "longitude": 8.5622,
-    },
-    {
-        "code": "HAM",
-        "icao": "EDDH",
-        "city": "Hamburg",
-        "wmo_id": "10147",
-        "station_name": "Hamburg-Fuhlsbüttel",
-        "latitude": 53.6304,
-        "longitude": 9.9882,
-    },
-    {
-        "code": "MUC",
-        "icao": "EDDM",
-        "city": "München",
-        "wmo_id": "10870",
-        "station_name": "München-Flughafen",
-        "latitude": 48.3538,
-        "longitude": 11.7861,
-    },
-    {
-        "code": "BER",
-        "icao": "EDDB",
-        "city": "Berlin Brandenburg",
-        "wmo_id": "10385",
-        "station_name": "Berlin-Brandenburg",
-        "latitude": 52.3667,
-        "longitude": 13.5033,
-    },
-    {
-        "code": "DUS",
-        "icao": "EDDL",
-        "city": "Düsseldorf",
-        "wmo_id": "10400",
-        "station_name": "Düsseldorf Flughafen",
-        "latitude": 51.2895,
-        "longitude": 6.7668,
-    },
-    {
-        "code": "STR",
-        "icao": "EDDS",
-        "city": "Stuttgart",
-        "wmo_id": "10738",
-        "station_name": "Stuttgart-Echterdingen",
-        "latitude": 48.6899,
-        "longitude": 9.2219,
-    },
-]
-
-OUTPUT_FILE = Path("weather.json")
-LOCAL_TZ = ZoneInfo("Europe/Berlin")
-
-GAS_PATH_LIMIT_C = 5.0
-NIGHT_START_HOUR = 20
-NIGHT_END_HOUR = 6
-MAX_MEASUREMENT_AGE_HOURS = 4
-
-USER_AGENT = "airport-weather-dashboard/3.3 (GitHub Actions; DWD Open Data)"
-
-DWD_POI_URL_TEMPLATE = (
-    "https://opendata.dwd.de/weather/weather_reports/poi/{wmo_id}-BEOB.csv"
-)
-
-DWD_MOSMIX_SINGLE_URL_TEMPLATE = (
-    "https://opendata.dwd.de/weather/local_forecasts/mos/"
-    "MOSMIX_L/single_stations/{wmo_id}/kml/MOSMIX_L_LATEST_{wmo_id}.kmz"
-)
-
-
-# ============================================================
-# HTTP & HILFSFUNKTIONEN
-# ============================================================
-
-def download_bytes(url, timeout=45):
-    request = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": USER_AGENT,
-            "Accept": "*/*",
+        "longitude": 8.5622
+      },
+      "hourly": [
+        {
+          "time": "2026-11-13T08:00:00Z",
+          "temperature": 2.6,
+          "dewPoint": 0.5,
+          "windKmh": 11.1,
+          "gustKmh": 22.2,
+          "windDirectionDegrees": 247.0,
+          "pressureHpa": 1012.2,
+          "precipMm": 0.0
         },
-    )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        return response.read()
-
-
-def download_text(url, encoding="utf-8", timeout=45):
-    return download_bytes(url, timeout=timeout).decode(encoding, errors="replace")
-
-
-def parse_iso_utc(iso_str):
-    cleaned = iso_str.strip().replace("Z", "+00:00")
-    dt = datetime.fromisoformat(cleaned)
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
-
-
-def float_or_none(value):
-    if value is None:
-        return None
-    text = str(value).strip().replace(",", ".")
-    if text in {"", "-", "---", "-999", "-999.0", "-9999", "-9999.0"}:
-        return None
-    try:
-        number = float(text)
-        return number if math.isfinite(number) else None
-    except ValueError:
-        return None
-
-
-def round_or_none(value, digits=1):
-    return None if value is None else round(float(value), digits)
-
-
-def kelvin_to_celsius(value):
-    return None if value is None else round(value - 273.15, 1)
-
-
-def metres_per_second_to_kmh(value):
-    return None if value is None else round(value * 3.6, 1)
-
-
-def pascal_to_hectopascal(value):
-    return None if value is None else round(value / 100.0, 1)
-
-
-def utc_iso(value):
-    if value is None:
-        return None
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    value = value.astimezone(timezone.utc)
-    return value.replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def is_night_hour_local(utc_dt):
-    local_dt = utc_dt.astimezone(LOCAL_TZ)
-    hour = local_dt.hour
-    return hour >= NIGHT_START_HOUR or hour <= NIGHT_END_HOUR
-
-
-def local_name(tag):
-    return tag.split("}")[-1]
-
-
-def element_text(element):
-    if element is None:
-        return ""
-    return "".join(element.itertext()).strip()
-
-
-def element_attribute(element, requested_name):
-    for key, value in element.attrib.items():
-        if local_name(key) == requested_name:
-            return value
-    return None
-
-
-def find_elements(root, requested_name):
-    return [el for el in root.iter() if local_name(el.tag) == requested_name]
-
-
-def parse_number_list(text):
-    return [float_or_none(item) for item in text.split()]
-
-
-def series_value(series, index):
-    return None if index >= len(series) else series[index]
-
-
-# ============================================================
-# AKTUELLE MESSWERTE (DWD POI ECHTZEIT-BEOBACHTUNGEN)
-# ============================================================
-
-def get_current_temperature_dwd_poi(airport):
-    url = DWD_POI_URL_TEMPLATE.format(wmo_id=airport["wmo_id"])
-    csv_text = download_text(url, encoding="utf-8")
-
-    lines = [line for line in csv_text.splitlines() if line.strip()]
-    if len(lines) < 4:
-        raise RuntimeError("POI-CSV enthält keine Datenzeilen.")
-
-    headers = [h.strip() for h in lines[0].split(";")]
-    ttt_index = None
-    for idx, h in enumerate(headers):
-        if h.upper() == "TTT":
-            ttt_index = idx
-            break
-
-    if ttt_index is None:
-        raise RuntimeError("Spalte TTT fehlt in POI-CSV.")
-
-    latest = None
-
-    for line in lines[3:]:
-        cols = [c.strip() for c in line.split(";")]
-        if len(cols) <= ttt_index:
-            continue
-
-        d_str = cols[0]
-        t_str = cols[1]
-        temp_val = float_or_none(cols[ttt_index])
-
-        if not d_str or not t_str or temp_val is None:
-            continue
-
-        try:
-            timestamp = datetime.strptime(
-                f"{d_str} {t_str}", "%d.%m.%y %H:%M"
-            ).replace(tzinfo=timezone.utc)
-        except ValueError:
-            continue
-
-        if latest is None or timestamp > latest["timestamp"]:
-            latest = {
-                "timestamp": timestamp,
-                "temperature": round(temp_val, 1),
-            }
-
-    if latest is None:
-        raise RuntimeError("Kein gültiger TTT-Messwert in POI-Datei.")
-
-    age_hours = (
-        datetime.now(timezone.utc) - latest["timestamp"]
-    ).total_seconds() / 3600
-
-    if age_hours > MAX_MEASUREMENT_AGE_HOURS:
-        raise RuntimeError(
-            f"POI-Messwert ist {round(age_hours, 1)} h alt."
-        )
-
-    return {
-        "temperature": latest["temperature"],
-        "time": utc_iso(latest["timestamp"]),
-        "ageHours": round(age_hours, 1),
-        "station": {
-            "stationId": airport["wmo_id"],
-            "name": airport["station_name"],
-            "distanceKm": 0.0,
+        {
+          "time": "2026-11-13T09:00:00Z",
+          "temperature": 3.7,
+          "dewPoint": 1.0,
+          "windKmh": 13.0,
+          "gustKmh": 22.2,
+          "windDirectionDegrees": 245.0,
+          "pressureHpa": 1013.0,
+          "precipMm": 0.0
         },
-    }
-
-
-# ============================================================
-# MOSMIX-L EINZELSTATION LADEN & AUSLESEN
-# ============================================================
-
-def parse_forecast_series(placemark):
-    forecast_values = {}
-    for forecast in find_elements(placemark, "Forecast"):
-        parameter_name = element_attribute(forecast, "elementName")
-        if not parameter_name:
-            continue
-        value_elements = find_elements(forecast, "value")
-        if not value_elements:
-            continue
-        forecast_values[parameter_name] = parse_number_list(
-            element_text(value_elements[0])
-        )
-    return forecast_values
-
-
-def summarize_forecast_rows(rows, airport, station_label):
-    now = datetime.now(timezone.utc)
-    end = now + timedelta(hours=24)
-
-    next_24_hours = [
-        row for row in rows if now <= row["timestamp"] <= end
-    ]
-
-    if not next_24_hours:
-        raise RuntimeError("Keine Forecastwerte für die nächsten 24 Stunden.")
-
-    minimum_row = min(next_24_hours, key=lambda row: row["temperature"])
-
-    night_rows = [
-        row for row in next_24_hours if is_night_hour_local(row["timestamp"])
-    ]
-    night_min_row = (
-        min(night_rows, key=lambda row: row["temperature"])
-        if night_rows
-        else minimum_row
-    )
-
-    hourly = [
-        {k: v for k, v in row.items() if k != "timestamp"}
-        for row in next_24_hours
-    ]
-
-    return {
-        "min24h": minimum_row["temperature"],
-        "min24hTime": minimum_row["time"],
-        "nightMin": night_min_row["temperature"],
-        "nightMinTime": night_min_row["time"],
-        "forecastStart": next_24_hours[0]["time"],
-        "forecastEnd": next_24_hours[-1]["time"],
-        "hourly": hourly,
-        "mosmixStation": {
-            "id": station_label,
-            "distanceKm": 0.0,
-            "latitude": airport["latitude"],
-            "longitude": airport["longitude"],
+        {
+          "time": "2026-11-13T10:00:00Z",
+          "temperature": 5.0,
+          "dewPoint": 1.1,
+          "windKmh": 14.8,
+          "gustKmh": 24.1,
+          "windDirectionDegrees": 249.0,
+          "pressureHpa": 1013.6,
+          "precipMm": 0.0
         },
-    }
-
-
-def create_mosmix_forecast_single(airport):
-    url = DWD_MOSMIX_SINGLE_URL_TEMPLATE.format(wmo_id=airport["wmo_id"])
-    kmz_data = download_bytes(url)
-
-    with zipfile.ZipFile(io.BytesIO(kmz_data)) as archive:
-        kml_files = [
-            f for f in archive.namelist() if f.lower().endswith(".kml")
-        ]
-        if not kml_files:
-            raise RuntimeError("MOSMIX-KMZ enthält keine KML.")
-        kml_data = archive.read(kml_files[0])
-
-    root = ET.fromstring(kml_data)
-
-    timestamps = []
-    for element in find_elements(root, "TimeStep"):
-        text = element_text(element)
-        if not text:
-            timestamps.append(None)
-            continue
-        try:
-            timestamps.append(parse_iso_utc(text))
-        except ValueError:
-            timestamps.append(None)
-
-    placemarks = find_elements(root, "Placemark")
-    if not placemarks:
-        raise RuntimeError("MOSMIX-Einzelstation enthält keinen Placemark.")
-
-    placemark = placemarks[0]
-    series = parse_forecast_series(placemark)
-    temperatures = series.get("TTT", [])
-    if not temperatures:
-        raise RuntimeError("Temperaturparameter TTT fehlt in MOSMIX.")
-
-    dewpoints = series.get("Td", [])
-    winds = series.get("FF", [])
-    directions = series.get("DD", [])
-    gusts_1h = series.get("FX1", [])
-    gusts_3h = series.get("FX3", [])
-    pressures = series.get("PPPP", [])
-    precipitation = series.get("RR1c") or series.get("RR1") or []
-
-    rows = []
-    for index, timestamp in enumerate(timestamps):
-        if timestamp is None:
-            continue
-
-        temperature = kelvin_to_celsius(series_value(temperatures, index))
-        if temperature is None:
-            continue
-
-        gust_value = series_value(gusts_1h, index)
-        if gust_value is None:
-            gust_value = series_value(gusts_3h, index)
-
-        rows.append(
-            {
-                "timestamp": timestamp,
-                "time": utc_iso(timestamp),
-                "temperature": temperature,
-                "dewPoint": kelvin_to_celsius(series_value(dewpoints, index)),
-                "windKmh": metres_per_second_to_kmh(series_value(winds, index)),
-                "gustKmh": metres_per_second_to_kmh(gust_value),
-                "windDirectionDegrees": round_or_none(
-                    series_value(directions, index), 0
-                ),
-                "pressureHpa": pascal_to_hectopascal(
-                    series_value(pressures, index)
-                ),
-                "precipMm": round_or_none(series_value(precipitation, index), 1),
-            }
-        )
-
-    return summarize_forecast_rows(
-        rows, airport, f"{airport['wmo_id']} ({airport['icao']})"
-    )
-
-
-# ============================================================
-# FALLBACK: OPEN-METEO DWD ICON-D2
-# ============================================================
-
-def fetch_open_meteo_fallback(airport):
-    url = (
-        f"https://api.open-meteo.com/v1/dwd-icon"
-        f"?latitude={airport['latitude']}&longitude={airport['longitude']}"
-        f"&current=temperature_2m&hourly=temperature_2m,dew_point_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure,precipitation"
-        f"&forecast_days=2&timezone=UTC"
-    )
-    data = json.loads(download_text(url))
-    now = datetime.now(timezone.utc)
-
-    cur_temp = round(float(data["current"]["temperature_2m"]), 1)
-    cur_time = parse_iso_utc(data["current"]["time"])
-
-    hourly_data = data["hourly"]
-    rows = []
-    for i, t_str in enumerate(hourly_data["time"]):
-        ts = parse_iso_utc(t_str)
-        temp = hourly_data["temperature_2m"][i]
-        if temp is not None:
-            rows.append(
-                {
-                    "timestamp": ts,
-                    "time": utc_iso(ts),
-                    "temperature": round(float(temp), 1),
-                    "dewPoint": round_or_none(hourly_data["dew_point_2m"][i]),
-                    "windKmh": round_or_none(hourly_data["wind_speed_10m"][i]),
-                    "gustKmh": round_or_none(hourly_data["wind_gusts_10m"][i]),
-                    "windDirectionDegrees": round_or_none(
-                        hourly_data["wind_direction_10m"][i], 0
-                    ),
-                    "pressureHpa": round_or_none(
-                        hourly_data["surface_pressure"][i]
-                    ),
-                    "precipMm": round_or_none(hourly_data["precipitation"][i]),
-                }
-            )
-
-    forecast = summarize_forecast_rows(
-        rows, airport, f"{airport['wmo_id']} (ICON-D2)"
-    )
-
-    return {
-        "measurement": {
-            "temperature": cur_temp,
-            "time": utc_iso(cur_time),
-            "ageHours": round((now - cur_time).total_seconds() / 3600, 1),
-            "station": {
-                "stationId": airport["wmo_id"],
-                "name": f"{airport['station_name']} (ICON-D2)",
-                "distanceKm": 0.0,
-            },
+        {
+          "time": "2026-11-13T11:00:00Z",
+          "temperature": 6.2,
+          "dewPoint": 1.2,
+          "windKmh": 14.8,
+          "gustKmh": 25.9,
+          "windDirectionDegrees": 256.0,
+          "pressureHpa": 1013.9,
+          "precipMm": 0.0
         },
-        "forecast": forecast,
-    }
-
-
-# ============================================================
-# STATUSLOGIK
-# ============================================================
-
-def get_weather_status(minimum):
-    if minimum is None:
-        return "NO DATA"
-    if minimum < -5:
-        return "CRITICAL"
-    if minimum < 0:
-        return "WARNING"
-    if minimum <= 3:
-        return "WATCH"
-    return "SAFE"
-
-
-def get_gas_path_status(night_minimum):
-    if night_minimum is None:
-        return "NO DATA"
-    if night_minimum >= GAS_PATH_LIMIT_C:
-        return "GO"
-    return "NO GO"
-
-
-# ============================================================
-# AIRPORT-ERGEBNIS
-# ============================================================
-
-def empty_airport_result(airport):
-    return {
-        "code": airport["code"],
-        "icao": airport["icao"],
-        "city": airport["city"],
-        "currentTemp": None,
-        "currentTempTime": None,
-        "currentTempAgeHours": None,
-        "min24h": None,
-        "min24hTime": None,
-        "nightMin": None,
-        "nightMinTime": None,
-        "forecastStart": None,
-        "forecastEnd": None,
-        "gasPathCleaning": "NO DATA",
-        "weatherStatus": "NO DATA",
-        "measurementStation": None,
-        "mosmixStation": None,
-        "hourly": [],
-        "errors": [],
-    }
-
-
-def create_airport_result(airport):
-    print("\n" + "=" * 60)
-    print(f"Verarbeite {airport['code']} ({airport['icao']}) - WMO {airport['wmo_id']}")
-
-    result = empty_airport_result(airport)
-    fallback_data = None
-
-    # 1. Aktuelle Messung (DWD POI)
-    try:
-        measurement = get_current_temperature_dwd_poi(airport)
-    except Exception as error:
-        print(f"DWD POI Warnung ({airport['code']}): {error} -> Nutze ICON-D2 Fallback")
-        fallback_data = fetch_open_meteo_fallback(airport)
-        measurement = fallback_data["measurement"]
-
-    result["currentTemp"] = measurement["temperature"]
-    result["currentTempTime"] = measurement["time"]
-    result["currentTempAgeHours"] = measurement["ageHours"]
-    result["measurementStation"] = measurement["station"]
-
-    # 2. 24h- & Nacht-Prognose (DWD MOSMIX_L Einzelstation)
-    try:
-        forecast = create_mosmix_forecast_single(airport)
-    except Exception as error:
-        print(f"DWD MOSMIX Warnung ({airport['code']}): {error} -> Nutze ICON-D2 Fallback")
-        if fallback_data is None:
-            fallback_data = fetch_open_meteo_fallback(airport)
-        forecast = fallback_data["forecast"]
-
-    result["min24h"] = forecast["min24h"]
-    result["min24hTime"] = forecast["min24hTime"]
-    result["nightMin"] = forecast["nightMin"]
-    result["nightMinTime"] = forecast["nightMinTime"]
-    result["forecastStart"] = forecast["forecastStart"]
-    result["forecastEnd"] = forecast["forecastEnd"]
-    result["hourly"] = forecast["hourly"]
-    result["mosmixStation"] = forecast["mosmixStation"]
-
-    result["weatherStatus"] = get_weather_status(result["nightMin"])
-    result["gasPathCleaning"] = get_gas_path_status(result["nightMin"])
-
-    print(
-        f"Aktuell: {result['currentTemp']} °C | Min 24h: {result['min24h']} °C | "
-        f"Nacht-Min: {result['nightMin']} °C -> {result['gasPathCleaning']}"
-    )
-
-    return result
-
-
-# ============================================================
-# HAUPTPROGRAMM
-# ============================================================
-
-def load_previous_airports():
-    if not OUTPUT_FILE.exists():
-        return {}
-    try:
-        old_data = json.loads(OUTPUT_FILE.read_text(encoding="utf-8"))
-        return {
-            a["code"]: a
-            for a in old_data.get("airports", [])
-            if a.get("currentTemp") is not None and a.get("min24h") is not None
+        {
+          "time": "2026-11-13T12:00:00Z",
+          "temperature": 7.1,
+          "dewPoint": 1.2,
+          "windKmh": 14.8,
+          "gustKmh": 25.9,
+          "windDirectionDegrees": 262.0,
+          "pressureHpa": 1014.0,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T13:00:00Z",
+          "temperature": 7.4,
+          "dewPoint": 1.1,
+          "windKmh": 14.8,
+          "gustKmh": 27.8,
+          "windDirectionDegrees": 266.0,
+          "pressureHpa": 1014.5,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T14:00:00Z",
+          "temperature": 7.5,
+          "dewPoint": 1.0,
+          "windKmh": 14.8,
+          "gustKmh": 25.9,
+          "windDirectionDegrees": 267.0,
+          "pressureHpa": 1014.8,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T15:00:00Z",
+          "temperature": 7.3,
+          "dewPoint": 1.0,
+          "windKmh": 14.8,
+          "gustKmh": 24.1,
+          "windDirectionDegrees": 264.0,
+          "pressureHpa": 1015.4,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T16:00:00Z",
+          "temperature": 6.5,
+          "dewPoint": 1.0,
+          "windKmh": 13.0,
+          "gustKmh": 22.2,
+          "windDirectionDegrees": 264.0,
+          "pressureHpa": 1016.2,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T17:00:00Z",
+          "temperature": 5.6,
+          "dewPoint": 0.9,
+          "windKmh": 11.1,
+          "gustKmh": 20.4,
+          "windDirectionDegrees": 262.0,
+          "pressureHpa": 1017.0,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T18:00:00Z",
+          "temperature": 4.6,
+          "dewPoint": 1.0,
+          "windKmh": 9.3,
+          "gustKmh": 18.5,
+          "windDirectionDegrees": 257.0,
+          "pressureHpa": 1017.6,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T19:00:00Z",
+          "temperature": 3.6,
+          "dewPoint": 0.8,
+          "windKmh": 9.3,
+          "gustKmh": 18.5,
+          "windDirectionDegrees": 252.0,
+          "pressureHpa": 1018.4,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T20:00:00Z",
+          "temperature": 3.1,
+          "dewPoint": 0.7,
+          "windKmh": 7.4,
+          "gustKmh": 16.7,
+          "windDirectionDegrees": 246.0,
+          "pressureHpa": 1019.2,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T21:00:00Z",
+          "temperature": 2.5,
+          "dewPoint": 0.6,
+          "windKmh": 7.4,
+          "gustKmh": 14.8,
+          "windDirectionDegrees": 231.0,
+          "pressureHpa": 1019.6,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T22:00:00Z",
+          "temperature": 1.8,
+          "dewPoint": 0.4,
+          "windKmh": 7.4,
+          "gustKmh": 13.0,
+          "windDirectionDegrees": 221.0,
+          "pressureHpa": 1020.2,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T23:00:00Z",
+          "temperature": 1.3,
+          "dewPoint": 0.1,
+          "windKmh": 5.5,
+          "gustKmh": 11.1,
+          "windDirectionDegrees": 212.0,
+          "pressureHpa": 1020.7,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T00:00:00Z",
+          "temperature": 0.8,
+          "dewPoint": -0.2,
+          "windKmh": 5.5,
+          "gustKmh": 9.3,
+          "windDirectionDegrees": 204.0,
+          "pressureHpa": 1021.0,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T01:00:00Z",
+          "temperature": 0.4,
+          "dewPoint": -0.5,
+          "windKmh": 3.7,
+          "gustKmh": 7.4,
+          "windDirectionDegrees": 201.0,
+          "pressureHpa": 1021.1,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T02:00:00Z",
+          "temperature": -0.2,
+          "dewPoint": -0.7,
+          "windKmh": 3.7,
+          "gustKmh": 7.4,
+          "windDirectionDegrees": 184.0,
+          "pressureHpa": 1021.3,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T03:00:00Z",
+          "temperature": -0.4,
+          "dewPoint": -0.9,
+          "windKmh": 3.7,
+          "gustKmh": 7.4,
+          "windDirectionDegrees": 167.0,
+          "pressureHpa": 1021.4,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T04:00:00Z",
+          "temperature": -0.7,
+          "dewPoint": -0.9,
+          "windKmh": 3.7,
+          "gustKmh": 7.4,
+          "windDirectionDegrees": 133.0,
+          "pressureHpa": 1021.7,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T05:00:00Z",
+          "temperature": -0.7,
+          "dewPoint": -0.9,
+          "windKmh": 3.7,
+          "gustKmh": 9.3,
+          "windDirectionDegrees": 144.0,
+          "pressureHpa": 1022.0,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T06:00:00Z",
+          "temperature": -0.6,
+          "dewPoint": -0.6,
+          "windKmh": 5.5,
+          "gustKmh": 9.3,
+          "windDirectionDegrees": 99.0,
+          "pressureHpa": 1022.3,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T07:00:00Z",
+          "temperature": 0.1,
+          "dewPoint": -0.2,
+          "windKmh": 5.5,
+          "gustKmh": 11.1,
+          "windDirectionDegrees": 83.0,
+          "pressureHpa": 1022.5,
+          "precipMm": 0.0
         }
-    except Exception:
-        return {}
-
-
-def main():
-    generated_at = datetime.now(timezone.utc)
-    previous_airports = load_previous_airports()
-
-    output = {
-        "updatedAt": utc_iso(generated_at),
-        "source": "Deutscher Wetterdienst POI und MOSMIX_L",
-        "gasPathCleaningLimitC": GAS_PATH_LIMIT_C,
-        "nightWindowLocal": f"{NIGHT_START_HOUR:02d}:00-{NIGHT_END_HOUR:02d}:00 Europe/Berlin",
-        "maximumMeasurementAgeHours": MAX_MEASUREMENT_AGE_HOURS,
-        "airports": [],
+      ],
+      "errors": []
+    },
+    {
+      "code": "HAM",
+      "icao": "EDDH",
+      "city": "Hamburg",
+      "currentTemp": 4.2,
+      "currentTempTime": "2026-11-13T07:00:00Z",
+      "currentTempAgeHours": 0.0,
+      "min24h": 4.0,
+      "min24hTime": "2026-11-14T04:00:00Z",
+      "forecastStart": "2026-11-13T08:00:00Z",
+      "forecastEnd": "2026-11-14T07:00:00Z",
+      "gasPathCleaning": "NO GO",
+      "weatherStatus": "SAFE",
+      "measurementStation": {
+        "stationId": "10147",
+        "name": "Hamburg-Fuhlsbüttel (ICON-D2)",
+        "distanceKm": 0.0
+      },
+      "mosmixStation": {
+        "id": "10147 (EDDH)",
+        "distanceKm": 0.0,
+        "latitude": 53.6304,
+        "longitude": 9.9882
+      },
+      "hourly": [
+        {
+          "time": "2026-11-13T08:00:00Z",
+          "temperature": 5.5,
+          "dewPoint": 2.7,
+          "windKmh": 20.4,
+          "gustKmh": 35.2,
+          "windDirectionDegrees": 272.0,
+          "pressureHpa": 1002.8,
+          "precipMm": 0.1
+        },
+        {
+          "time": "2026-11-13T09:00:00Z",
+          "temperature": 6.2,
+          "dewPoint": 2.9,
+          "windKmh": 22.2,
+          "gustKmh": 38.9,
+          "windDirectionDegrees": 273.0,
+          "pressureHpa": 1003.6,
+          "precipMm": 0.1
+        },
+        {
+          "time": "2026-11-13T10:00:00Z",
+          "temperature": 6.8,
+          "dewPoint": 3.0,
+          "windKmh": 22.2,
+          "gustKmh": 40.8,
+          "windDirectionDegrees": 276.0,
+          "pressureHpa": 1004.3,
+          "precipMm": 0.2
+        },
+        {
+          "time": "2026-11-13T11:00:00Z",
+          "temperature": 7.3,
+          "dewPoint": 3.0,
+          "windKmh": 24.1,
+          "gustKmh": 44.5,
+          "windDirectionDegrees": 279.0,
+          "pressureHpa": 1004.9,
+          "precipMm": 0.2
+        },
+        {
+          "time": "2026-11-13T12:00:00Z",
+          "temperature": 7.6,
+          "dewPoint": 2.9,
+          "windKmh": 25.9,
+          "gustKmh": 46.3,
+          "windDirectionDegrees": 283.0,
+          "pressureHpa": 1005.4,
+          "precipMm": 0.2
+        },
+        {
+          "time": "2026-11-13T13:00:00Z",
+          "temperature": 7.7,
+          "dewPoint": 2.7,
+          "windKmh": 25.9,
+          "gustKmh": 48.2,
+          "windDirectionDegrees": 285.0,
+          "pressureHpa": 1006.2,
+          "precipMm": 0.3
+        },
+        {
+          "time": "2026-11-13T14:00:00Z",
+          "temperature": 7.4,
+          "dewPoint": 2.5,
+          "windKmh": 24.1,
+          "gustKmh": 46.3,
+          "windDirectionDegrees": 286.0,
+          "pressureHpa": 1007.0,
+          "precipMm": 0.3
+        },
+        {
+          "time": "2026-11-13T15:00:00Z",
+          "temperature": 7.0,
+          "dewPoint": 2.4,
+          "windKmh": 22.2,
+          "gustKmh": 42.6,
+          "windDirectionDegrees": 285.0,
+          "pressureHpa": 1007.8,
+          "precipMm": 0.2
+        },
+        {
+          "time": "2026-11-13T16:00:00Z",
+          "temperature": 6.6,
+          "dewPoint": 2.5,
+          "windKmh": 18.5,
+          "gustKmh": 38.9,
+          "windDirectionDegrees": 283.0,
+          "pressureHpa": 1008.7,
+          "precipMm": 0.2
+        },
+        {
+          "time": "2026-11-13T17:00:00Z",
+          "temperature": 6.1,
+          "dewPoint": 2.5,
+          "windKmh": 16.7,
+          "gustKmh": 33.3,
+          "windDirectionDegrees": 280.0,
+          "pressureHpa": 1009.6,
+          "precipMm": 0.1
+        },
+        {
+          "time": "2026-11-13T18:00:00Z",
+          "temperature": 5.7,
+          "dewPoint": 2.5,
+          "windKmh": 14.8,
+          "gustKmh": 29.6,
+          "windDirectionDegrees": 275.0,
+          "pressureHpa": 1010.4,
+          "precipMm": 0.1
+        },
+        {
+          "time": "2026-11-13T19:00:00Z",
+          "temperature": 5.5,
+          "dewPoint": 2.4,
+          "windKmh": 14.8,
+          "gustKmh": 27.8,
+          "windDirectionDegrees": 269.0,
+          "pressureHpa": 1011.3,
+          "precipMm": 0.2
+        },
+        {
+          "time": "2026-11-13T20:00:00Z",
+          "temperature": 5.1,
+          "dewPoint": 2.4,
+          "windKmh": 13.0,
+          "gustKmh": 25.9,
+          "windDirectionDegrees": 267.0,
+          "pressureHpa": 1012.1,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T21:00:00Z",
+          "temperature": 4.9,
+          "dewPoint": 2.4,
+          "windKmh": 13.0,
+          "gustKmh": 24.1,
+          "windDirectionDegrees": 262.0,
+          "pressureHpa": 1012.8,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T22:00:00Z",
+          "temperature": 4.8,
+          "dewPoint": 2.6,
+          "windKmh": 13.0,
+          "gustKmh": 22.2,
+          "windDirectionDegrees": 259.0,
+          "pressureHpa": 1013.5,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T23:00:00Z",
+          "temperature": 4.7,
+          "dewPoint": 2.6,
+          "windKmh": 13.0,
+          "gustKmh": 22.2,
+          "windDirectionDegrees": 256.0,
+          "pressureHpa": 1014.2,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T00:00:00Z",
+          "temperature": 4.5,
+          "dewPoint": 2.7,
+          "windKmh": 11.1,
+          "gustKmh": 20.4,
+          "windDirectionDegrees": 253.0,
+          "pressureHpa": 1014.7,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T01:00:00Z",
+          "temperature": 4.4,
+          "dewPoint": 2.8,
+          "windKmh": 11.1,
+          "gustKmh": 20.4,
+          "windDirectionDegrees": 249.0,
+          "pressureHpa": 1015.2,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T02:00:00Z",
+          "temperature": 4.1,
+          "dewPoint": 3.0,
+          "windKmh": 11.1,
+          "gustKmh": 20.4,
+          "windDirectionDegrees": 244.0,
+          "pressureHpa": 1015.6,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T03:00:00Z",
+          "temperature": 4.1,
+          "dewPoint": 3.1,
+          "windKmh": 13.0,
+          "gustKmh": 20.4,
+          "windDirectionDegrees": 240.0,
+          "pressureHpa": 1015.9,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T04:00:00Z",
+          "temperature": 4.0,
+          "dewPoint": 3.2,
+          "windKmh": 13.0,
+          "gustKmh": 20.4,
+          "windDirectionDegrees": 235.0,
+          "pressureHpa": 1016.4,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T05:00:00Z",
+          "temperature": 4.0,
+          "dewPoint": 3.3,
+          "windKmh": 13.0,
+          "gustKmh": 20.4,
+          "windDirectionDegrees": 232.0,
+          "pressureHpa": 1016.9,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T06:00:00Z",
+          "temperature": 4.0,
+          "dewPoint": 3.3,
+          "windKmh": 13.0,
+          "gustKmh": 22.2,
+          "windDirectionDegrees": 230.0,
+          "pressureHpa": 1017.4,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T07:00:00Z",
+          "temperature": 4.3,
+          "dewPoint": 3.4,
+          "windKmh": 13.0,
+          "gustKmh": 22.2,
+          "windDirectionDegrees": 228.0,
+          "pressureHpa": 1017.8,
+          "precipMm": 0.0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "code": "MUC",
+      "icao": "EDDM",
+      "city": "München",
+      "currentTemp": 1.5,
+      "currentTempTime": "2026-11-13T07:00:00Z",
+      "currentTempAgeHours": 0.0,
+      "min24h": -2.6,
+      "min24hTime": "2026-11-14T04:00:00Z",
+      "forecastStart": "2026-11-13T08:00:00Z",
+      "forecastEnd": "2026-11-14T07:00:00Z",
+      "gasPathCleaning": "NO GO",
+      "weatherStatus": "WARNING",
+      "measurementStation": {
+        "stationId": "10870",
+        "name": "München-Flughafen (ICON-D2)",
+        "distanceKm": 0.0
+      },
+      "mosmixStation": {
+        "id": "10870 (EDDM)",
+        "distanceKm": 0.0,
+        "latitude": 48.3538,
+        "longitude": 11.7861
+      },
+      "hourly": [
+        {
+          "time": "2026-11-13T08:00:00Z",
+          "temperature": 2.9,
+          "dewPoint": 1.1,
+          "windKmh": 13.0,
+          "gustKmh": 20.4,
+          "windDirectionDegrees": 277.0,
+          "pressureHpa": 1011.5,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T09:00:00Z",
+          "temperature": 3.4,
+          "dewPoint": 0.9,
+          "windKmh": 13.0,
+          "gustKmh": 22.2,
+          "windDirectionDegrees": 275.0,
+          "pressureHpa": 1012.4,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T10:00:00Z",
+          "temperature": 4.0,
+          "dewPoint": 0.9,
+          "windKmh": 14.8,
+          "gustKmh": 24.1,
+          "windDirectionDegrees": 274.0,
+          "pressureHpa": 1013.1,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T11:00:00Z",
+          "temperature": 4.5,
+          "dewPoint": 0.6,
+          "windKmh": 14.8,
+          "gustKmh": 25.9,
+          "windDirectionDegrees": 273.0,
+          "pressureHpa": 1013.4,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T12:00:00Z",
+          "temperature": 5.1,
+          "dewPoint": 0.3,
+          "windKmh": 14.8,
+          "gustKmh": 25.9,
+          "windDirectionDegrees": 271.0,
+          "pressureHpa": 1013.6,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T13:00:00Z",
+          "temperature": 5.2,
+          "dewPoint": 0.0,
+          "windKmh": 14.8,
+          "gustKmh": 25.9,
+          "windDirectionDegrees": 267.0,
+          "pressureHpa": 1014.1,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T14:00:00Z",
+          "temperature": 5.1,
+          "dewPoint": -0.1,
+          "windKmh": 13.0,
+          "gustKmh": 25.9,
+          "windDirectionDegrees": 268.0,
+          "pressureHpa": 1014.5,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T15:00:00Z",
+          "temperature": 4.7,
+          "dewPoint": 0.0,
+          "windKmh": 13.0,
+          "gustKmh": 24.1,
+          "windDirectionDegrees": 262.0,
+          "pressureHpa": 1015.3,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T16:00:00Z",
+          "temperature": 4.1,
+          "dewPoint": -0.1,
+          "windKmh": 11.1,
+          "gustKmh": 20.4,
+          "windDirectionDegrees": 259.0,
+          "pressureHpa": 1016.2,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T17:00:00Z",
+          "temperature": 3.7,
+          "dewPoint": 0.0,
+          "windKmh": 9.3,
+          "gustKmh": 18.5,
+          "windDirectionDegrees": 249.0,
+          "pressureHpa": 1017.3,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T18:00:00Z",
+          "temperature": 3.0,
+          "dewPoint": 0.0,
+          "windKmh": 9.3,
+          "gustKmh": 16.7,
+          "windDirectionDegrees": 241.0,
+          "pressureHpa": 1018.2,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T19:00:00Z",
+          "temperature": 2.5,
+          "dewPoint": -0.2,
+          "windKmh": 7.4,
+          "gustKmh": 14.8,
+          "windDirectionDegrees": 239.0,
+          "pressureHpa": 1019.2,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T20:00:00Z",
+          "temperature": 2.2,
+          "dewPoint": -0.4,
+          "windKmh": 7.4,
+          "gustKmh": 14.8,
+          "windDirectionDegrees": 238.0,
+          "pressureHpa": 1020.0,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T21:00:00Z",
+          "temperature": 1.5,
+          "dewPoint": -0.5,
+          "windKmh": 7.4,
+          "gustKmh": 13.0,
+          "windDirectionDegrees": 235.0,
+          "pressureHpa": 1020.7,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T22:00:00Z",
+          "temperature": 0.7,
+          "dewPoint": -1.0,
+          "windKmh": 5.5,
+          "gustKmh": 11.1,
+          "windDirectionDegrees": 232.0,
+          "pressureHpa": 1021.6,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T23:00:00Z",
+          "temperature": 0.0,
+          "dewPoint": -1.3,
+          "windKmh": 5.5,
+          "gustKmh": 11.1,
+          "windDirectionDegrees": 232.0,
+          "pressureHpa": 1022.0,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T00:00:00Z",
+          "temperature": -0.7,
+          "dewPoint": -1.7,
+          "windKmh": 5.5,
+          "gustKmh": 9.3,
+          "windDirectionDegrees": 232.0,
+          "pressureHpa": 1022.5,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T01:00:00Z",
+          "temperature": -1.2,
+          "dewPoint": -2.0,
+          "windKmh": 5.5,
+          "gustKmh": 9.3,
+          "windDirectionDegrees": 223.0,
+          "pressureHpa": 1022.8,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T02:00:00Z",
+          "temperature": -1.8,
+          "dewPoint": -2.3,
+          "windKmh": 3.7,
+          "gustKmh": 7.4,
+          "windDirectionDegrees": 217.0,
+          "pressureHpa": 1023.1,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T03:00:00Z",
+          "temperature": -2.3,
+          "dewPoint": -2.6,
+          "windKmh": 3.7,
+          "gustKmh": 5.5,
+          "windDirectionDegrees": 201.0,
+          "pressureHpa": 1023.2,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T04:00:00Z",
+          "temperature": -2.6,
+          "dewPoint": -3.1,
+          "windKmh": 3.7,
+          "gustKmh": 5.5,
+          "windDirectionDegrees": 172.0,
+          "pressureHpa": 1023.5,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T05:00:00Z",
+          "temperature": -2.6,
+          "dewPoint": -3.3,
+          "windKmh": 3.7,
+          "gustKmh": 5.5,
+          "windDirectionDegrees": 98.0,
+          "pressureHpa": 1023.7,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T06:00:00Z",
+          "temperature": -2.4,
+          "dewPoint": -3.0,
+          "windKmh": 3.7,
+          "gustKmh": 7.4,
+          "windDirectionDegrees": 78.0,
+          "pressureHpa": 1024.0,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T07:00:00Z",
+          "temperature": -1.8,
+          "dewPoint": -2.5,
+          "windKmh": 5.5,
+          "gustKmh": 9.3,
+          "windDirectionDegrees": 79.0,
+          "pressureHpa": 1024.0,
+          "precipMm": 0.0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "code": "BER",
+      "icao": "EDDB",
+      "city": "Berlin Brandenburg",
+      "currentTemp": 2.1,
+      "currentTempTime": "2026-11-13T07:00:00Z",
+      "currentTempAgeHours": 0.0,
+      "min24h": 3.0,
+      "min24hTime": "2026-11-14T04:00:00Z",
+      "forecastStart": "2026-11-13T08:00:00Z",
+      "forecastEnd": "2026-11-14T07:00:00Z",
+      "gasPathCleaning": "NO GO",
+      "weatherStatus": "WATCH",
+      "measurementStation": {
+        "stationId": "10385",
+        "name": "Berlin-Brandenburg (ICON-D2)",
+        "distanceKm": 0.0
+      },
+      "mosmixStation": {
+        "id": "10385 (EDDB)",
+        "distanceKm": 0.0,
+        "latitude": 52.3667,
+        "longitude": 13.5033
+      },
+      "hourly": [
+        {
+          "time": "2026-11-13T08:00:00Z",
+          "temperature": 3.8,
+          "dewPoint": 1.1,
+          "windKmh": 25.9,
+          "gustKmh": 38.9,
+          "windDirectionDegrees": 266.0,
+          "pressureHpa": 1002.4,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T09:00:00Z",
+          "temperature": 4.8,
+          "dewPoint": 1.5,
+          "windKmh": 29.6,
+          "gustKmh": 42.6,
+          "windDirectionDegrees": 269.0,
+          "pressureHpa": 1003.2,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T10:00:00Z",
+          "temperature": 5.9,
+          "dewPoint": 1.8,
+          "windKmh": 31.5,
+          "gustKmh": 46.3,
+          "windDirectionDegrees": 271.0,
+          "pressureHpa": 1003.8,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T11:00:00Z",
+          "temperature": 6.7,
+          "dewPoint": 1.9,
+          "windKmh": 33.3,
+          "gustKmh": 48.2,
+          "windDirectionDegrees": 272.0,
+          "pressureHpa": 1004.2,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T12:00:00Z",
+          "temperature": 7.3,
+          "dewPoint": 1.9,
+          "windKmh": 33.3,
+          "gustKmh": 50.0,
+          "windDirectionDegrees": 272.0,
+          "pressureHpa": 1004.7,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T13:00:00Z",
+          "temperature": 7.5,
+          "dewPoint": 1.7,
+          "windKmh": 33.3,
+          "gustKmh": 50.0,
+          "windDirectionDegrees": 270.0,
+          "pressureHpa": 1005.3,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T14:00:00Z",
+          "temperature": 7.5,
+          "dewPoint": 1.6,
+          "windKmh": 31.5,
+          "gustKmh": 50.0,
+          "windDirectionDegrees": 267.0,
+          "pressureHpa": 1005.9,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T15:00:00Z",
+          "temperature": 7.0,
+          "dewPoint": 1.7,
+          "windKmh": 29.6,
+          "gustKmh": 50.0,
+          "windDirectionDegrees": 267.0,
+          "pressureHpa": 1006.6,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T16:00:00Z",
+          "temperature": 6.4,
+          "dewPoint": 1.6,
+          "windKmh": 29.6,
+          "gustKmh": 46.3,
+          "windDirectionDegrees": 265.0,
+          "pressureHpa": 1007.5,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T17:00:00Z",
+          "temperature": 5.7,
+          "dewPoint": 1.5,
+          "windKmh": 27.8,
+          "gustKmh": 44.5,
+          "windDirectionDegrees": 266.0,
+          "pressureHpa": 1008.3,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T18:00:00Z",
+          "temperature": 5.1,
+          "dewPoint": 1.5,
+          "windKmh": 27.8,
+          "gustKmh": 42.6,
+          "windDirectionDegrees": 267.0,
+          "pressureHpa": 1009.3,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T19:00:00Z",
+          "temperature": 4.7,
+          "dewPoint": 1.4,
+          "windKmh": 25.9,
+          "gustKmh": 40.8,
+          "windDirectionDegrees": 268.0,
+          "pressureHpa": 1010.3,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T20:00:00Z",
+          "temperature": 4.4,
+          "dewPoint": 1.4,
+          "windKmh": 25.9,
+          "gustKmh": 38.9,
+          "windDirectionDegrees": 267.0,
+          "pressureHpa": 1011.3,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T21:00:00Z",
+          "temperature": 4.2,
+          "dewPoint": 1.3,
+          "windKmh": 24.1,
+          "gustKmh": 37.0,
+          "windDirectionDegrees": 266.0,
+          "pressureHpa": 1012.1,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T22:00:00Z",
+          "temperature": 4.0,
+          "dewPoint": 1.2,
+          "windKmh": 22.2,
+          "gustKmh": 33.3,
+          "windDirectionDegrees": 265.0,
+          "pressureHpa": 1013.2,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T23:00:00Z",
+          "temperature": 3.8,
+          "dewPoint": 1.1,
+          "windKmh": 22.2,
+          "gustKmh": 31.5,
+          "windDirectionDegrees": 263.0,
+          "pressureHpa": 1014.0,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T00:00:00Z",
+          "temperature": 3.6,
+          "dewPoint": 1.1,
+          "windKmh": 20.4,
+          "gustKmh": 31.5,
+          "windDirectionDegrees": 262.0,
+          "pressureHpa": 1014.7,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T01:00:00Z",
+          "temperature": 3.4,
+          "dewPoint": 1.1,
+          "windKmh": 20.4,
+          "gustKmh": 29.6,
+          "windDirectionDegrees": 261.0,
+          "pressureHpa": 1015.4,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T02:00:00Z",
+          "temperature": 3.3,
+          "dewPoint": 1.2,
+          "windKmh": 18.5,
+          "gustKmh": 27.8,
+          "windDirectionDegrees": 260.0,
+          "pressureHpa": 1016.0,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T03:00:00Z",
+          "temperature": 3.2,
+          "dewPoint": 1.2,
+          "windKmh": 18.5,
+          "gustKmh": 25.9,
+          "windDirectionDegrees": 258.0,
+          "pressureHpa": 1016.5,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T04:00:00Z",
+          "temperature": 3.0,
+          "dewPoint": 1.1,
+          "windKmh": 16.7,
+          "gustKmh": 25.9,
+          "windDirectionDegrees": 256.0,
+          "pressureHpa": 1017.3,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T05:00:00Z",
+          "temperature": 3.0,
+          "dewPoint": 1.3,
+          "windKmh": 16.7,
+          "gustKmh": 24.1,
+          "windDirectionDegrees": 252.0,
+          "pressureHpa": 1018.0,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T06:00:00Z",
+          "temperature": 3.1,
+          "dewPoint": 1.5,
+          "windKmh": 16.7,
+          "gustKmh": 24.1,
+          "windDirectionDegrees": 250.0,
+          "pressureHpa": 1018.7,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T07:00:00Z",
+          "temperature": 3.4,
+          "dewPoint": 1.9,
+          "windKmh": 16.7,
+          "gustKmh": 24.1,
+          "windDirectionDegrees": 248.0,
+          "pressureHpa": 1019.5,
+          "precipMm": 0.0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "code": "DUS",
+      "icao": "EDDL",
+      "city": "Düsseldorf",
+      "currentTemp": -0.6,
+      "currentTempTime": "2026-11-13T07:00:00Z",
+      "currentTempAgeHours": 0.0,
+      "min24h": 1.8,
+      "min24hTime": "2026-11-14T03:00:00Z",
+      "forecastStart": "2026-11-13T08:00:00Z",
+      "forecastEnd": "2026-11-14T07:00:00Z",
+      "gasPathCleaning": "NO GO",
+      "weatherStatus": "WATCH",
+      "measurementStation": {
+        "stationId": "10400",
+        "name": "Düsseldorf Flughafen (ICON-D2)",
+        "distanceKm": 0.0
+      },
+      "mosmixStation": {
+        "id": "10400 (EDDL)",
+        "distanceKm": 0.0,
+        "latitude": 51.2895,
+        "longitude": 6.7668
+      },
+      "hourly": [
+        {
+          "time": "2026-11-13T08:00:00Z",
+          "temperature": 1.9,
+          "dewPoint": 0.8,
+          "windKmh": 9.3,
+          "gustKmh": 13.0,
+          "windDirectionDegrees": 219.0,
+          "pressureHpa": 1011.7,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T09:00:00Z",
+          "temperature": 3.3,
+          "dewPoint": 1.5,
+          "windKmh": 11.1,
+          "gustKmh": 14.8,
+          "windDirectionDegrees": 231.0,
+          "pressureHpa": 1012.3,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T10:00:00Z",
+          "temperature": 5.0,
+          "dewPoint": 1.9,
+          "windKmh": 11.1,
+          "gustKmh": 18.5,
+          "windDirectionDegrees": 244.0,
+          "pressureHpa": 1012.9,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T11:00:00Z",
+          "temperature": 6.5,
+          "dewPoint": 2.2,
+          "windKmh": 13.0,
+          "gustKmh": 20.4,
+          "windDirectionDegrees": 260.0,
+          "pressureHpa": 1013.3,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T12:00:00Z",
+          "temperature": 7.5,
+          "dewPoint": 2.4,
+          "windKmh": 13.0,
+          "gustKmh": 22.2,
+          "windDirectionDegrees": 264.0,
+          "pressureHpa": 1013.6,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T13:00:00Z",
+          "temperature": 8.0,
+          "dewPoint": 2.6,
+          "windKmh": 13.0,
+          "gustKmh": 24.1,
+          "windDirectionDegrees": 268.0,
+          "pressureHpa": 1014.1,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T14:00:00Z",
+          "temperature": 8.1,
+          "dewPoint": 2.7,
+          "windKmh": 13.0,
+          "gustKmh": 22.2,
+          "windDirectionDegrees": 267.0,
+          "pressureHpa": 1014.5,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T15:00:00Z",
+          "temperature": 7.7,
+          "dewPoint": 2.8,
+          "windKmh": 11.1,
+          "gustKmh": 22.2,
+          "windDirectionDegrees": 266.0,
+          "pressureHpa": 1015.0,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T16:00:00Z",
+          "temperature": 7.0,
+          "dewPoint": 2.9,
+          "windKmh": 11.1,
+          "gustKmh": 18.5,
+          "windDirectionDegrees": 259.0,
+          "pressureHpa": 1015.7,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T17:00:00Z",
+          "temperature": 6.0,
+          "dewPoint": 2.8,
+          "windKmh": 9.3,
+          "gustKmh": 16.7,
+          "windDirectionDegrees": 248.0,
+          "pressureHpa": 1016.5,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T18:00:00Z",
+          "temperature": 5.0,
+          "dewPoint": 2.7,
+          "windKmh": 9.3,
+          "gustKmh": 14.8,
+          "windDirectionDegrees": 240.0,
+          "pressureHpa": 1017.1,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T19:00:00Z",
+          "temperature": 4.2,
+          "dewPoint": 2.6,
+          "windKmh": 9.3,
+          "gustKmh": 13.0,
+          "windDirectionDegrees": 236.0,
+          "pressureHpa": 1017.9,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T20:00:00Z",
+          "temperature": 3.5,
+          "dewPoint": 2.4,
+          "windKmh": 7.4,
+          "gustKmh": 13.0,
+          "windDirectionDegrees": 232.0,
+          "pressureHpa": 1018.4,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T21:00:00Z",
+          "temperature": 3.0,
+          "dewPoint": 2.2,
+          "windKmh": 7.4,
+          "gustKmh": 13.0,
+          "windDirectionDegrees": 225.0,
+          "pressureHpa": 1018.9,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T22:00:00Z",
+          "temperature": 2.6,
+          "dewPoint": 2.1,
+          "windKmh": 7.4,
+          "gustKmh": 11.1,
+          "windDirectionDegrees": 214.0,
+          "pressureHpa": 1019.5,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-13T23:00:00Z",
+          "temperature": 2.2,
+          "dewPoint": 2.0,
+          "windKmh": 7.4,
+          "gustKmh": 13.0,
+          "windDirectionDegrees": 202.0,
+          "pressureHpa": 1019.9,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T00:00:00Z",
+          "temperature": 2.0,
+          "dewPoint": 1.8,
+          "windKmh": 7.4,
+          "gustKmh": 13.0,
+          "windDirectionDegrees": 192.0,
+          "pressureHpa": 1020.1,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T01:00:00Z",
+          "temperature": 1.9,
+          "dewPoint": 1.9,
+          "windKmh": 7.4,
+          "gustKmh": 13.0,
+          "windDirectionDegrees": 181.0,
+          "pressureHpa": 1020.3,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T02:00:00Z",
+          "temperature": 1.9,
+          "dewPoint": 1.9,
+          "windKmh": 9.3,
+          "gustKmh": 13.0,
+          "windDirectionDegrees": 174.0,
+          "pressureHpa": 1020.3,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T03:00:00Z",
+          "temperature": 1.8,
+          "dewPoint": 1.8,
+          "windKmh": 9.3,
+          "gustKmh": 13.0,
+          "windDirectionDegrees": 172.0,
+          "pressureHpa": 1020.3,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T04:00:00Z",
+          "temperature": 1.9,
+          "dewPoint": 1.7,
+          "windKmh": 9.3,
+          "gustKmh": 14.8,
+          "windDirectionDegrees": 168.0,
+          "pressureHpa": 1020.5,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T05:00:00Z",
+          "temperature": 2.0,
+          "dewPoint": 2.0,
+          "windKmh": 9.3,
+          "gustKmh": 14.8,
+          "windDirectionDegrees": 164.0,
+          "pressureHpa": 1020.7,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T06:00:00Z",
+          "temperature": 2.2,
+          "dewPoint": 1.9,
+          "windKmh": 9.3,
+          "gustKmh": 14.8,
+          "windDirectionDegrees": 161.0,
+          "pressureHpa": 1020.9,
+          "precipMm": 0.0
+        },
+        {
+          "time": "2026-11-14T07:00:00Z",
+          "temperature": 2.7,
+          "dewPoint": 1.9,
+          "windKmh": 11.1,
+          "gustKmh": 16.7,
+          "windDirectionDegrees": 161.0,
+          "pressureHpa": 1021.0,
+          "precipMm": 0.0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "code": "STR",
+      "icao": "EDDS",
+      "city": "Stuttgart",
+      "currentTemp": null,
+      "currentTempTime": null,
+      "currentTempAgeHours": null,
+      "min24h": null,
+      "min24hTime": null,
+      "forecastStart": null,
+      "forecastEnd": null,
+      "gasPathCleaning": "NO DATA",
+      "weatherStatus": "NO DATA",
+      "measurementStation": null,
+      "mosmixStation": null,
+      "hourly": [],
+      "errors": [
+        "Allgemein: <urlopen error _ssl.c:994: The handshake operation timed out>"
+      ]
     }
-
-    for airport in AIRPORTS:
-        try:
-            result = create_airport_result(airport)
-        except Exception as error:
-            print(f"Fehler bei {airport['code']}: {error}")
-            # Behalte letzten gültigen Stand, falls vorhanden
-            if airport["code"] in previous_airports:
-                print(f"Behalte vorherige gültige Daten für {airport['code']}.")
-                result = previous_airports[airport["code"]]
-            else:
-                result = empty_airport_result(airport)
-                result["errors"].append(f"Allgemein: {error}")
-
-        output["airports"].append(result)
-
-    OUTPUT_FILE.write_text(
-        json.dumps(output, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-
-    print("\n" + "=" * 60)
-    print(f"{OUTPUT_FILE} wurde erfolgreich erzeugt.")
-
-
-if __name__ == "__main__":
-    main()
+  ]
+}
