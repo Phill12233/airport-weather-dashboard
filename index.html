@@ -271,7 +271,7 @@ footer {
   <br>
   Fuel Draining (Nachtfenster 20:00–06:00 Uhr):
   🟢 GO = Nacht-Minimum über 0,0 °C ·
-  🔴 NO GO = Nacht-Minimum 0,0 °C oder kälter
+  🟡 ATT. COLD WEATHER PROCEDURE = Nacht-Minimum 0,0 °C oder kälter
   <br>
   Letzter Datenabruf:
   <span id="updated">Noch keine Daten</span>
@@ -455,7 +455,7 @@ function render(data) {
   let goCount = 0;
   let noGoCount = 0;
   let fuelGoCount = 0;
-  let fuelNoGoCount = 0;
+  let fuelColdWeatherCount = 0;
   let noDataCount = 0;
 
   airports.forEach(airport => {
@@ -497,7 +497,7 @@ function render(data) {
     }
 
     /* ----------------------------------------------------
-       FUEL DRAINING (> 0.0 °C = GO, <= 0.0 °C = NO GO)
+       FUEL DRAINING (> 0.0 °C = GO, <= 0.0 °C = ATT. COLD WEATHER PROCEDURE)
     ---------------------------------------------------- */
 
     let fuelDrainText = "⚪ NO DATA · KEINE FREIGABE";
@@ -508,9 +508,9 @@ function render(data) {
       fuelDrainCss = "green";
       fuelGoCount++;
     } else if (valid && relevantMin <= FUEL_DRAINING_LIMIT) {
-      fuelDrainText = "🔴 NO GO · FUEL DRAINING";
-      fuelDrainCss = "red";
-      fuelNoGoCount++;
+      fuelDrainText = "⚠️ ATT. COLD WEATHER PROCEDURE";
+      fuelDrainCss = "yellow";
+      fuelColdWeatherCount++;
     }
 
     /* ----------------------------------------------------
@@ -637,7 +637,7 @@ function render(data) {
   } else {
     summaryText =
       `Gas Path Cleaning: ${goCount} GO · ${noGoCount} NO GO | ` +
-      `Fuel Draining: ${fuelGoCount} GO · ${fuelNoGoCount} NO GO` +
+      `Fuel Draining: ${fuelGoCount} GO · ${fuelColdWeatherCount} Att. Cold Weather Procedure` +
       (noDataCount > 0 ? ` · ${noDataCount} ohne gültige Daten.` : ".");
   }
 
