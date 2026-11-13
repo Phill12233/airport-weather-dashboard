@@ -149,7 +149,8 @@ h1 {
 }
 
 .weather-status,
-.gaspath-status {
+.gaspath-status,
+.fueldrain-status {
   padding: 11px;
   border-radius: 8px;
   font-weight: bold;
@@ -157,7 +158,8 @@ h1 {
   text-align: center;
 }
 
-.weather-status {
+.weather-status,
+.gaspath-status {
   margin-bottom: 8px;
 }
 
@@ -242,7 +244,7 @@ footer {
   <div>
     <h1>✈ Airport Weather Dashboard</h1>
     <div class="subtitle">
-      AIRPORT OPERATIONS · GAS PATH CLEANING MONITOR
+      AIRPORT OPERATIONS · GAS PATH CLEANING &amp; FUEL DRAINING MONITOR
     </div>
   </div>
 
@@ -252,7 +254,7 @@ footer {
 </header>
 
 <section class="summary">
-  <h2>Gas Path Cleaning – Gesamtübersicht</h2>
+  <h2>Operations – Gesamtübersicht</h2>
   <p id="summary">
     Warte auf Wetterdaten ...
   </p>
@@ -266,6 +268,10 @@ footer {
   Gas Path Cleaning (Nachtfenster 20:00–06:00 Uhr):
   🟢 GO = Nacht-Minimum mindestens +5,0 °C ·
   🔴 NO GO = Nacht-Minimum unter +5,0 °C
+  <br>
+  Fuel Draining (Nachtfenster 20:00–06:00 Uhr):
+  🟢 GO = Nacht-Minimum über 0,0 °C ·
+  🔴 NO GO = Nacht-Minimum 0,0 °C oder kälter
   <br>
   Letzter Datenabruf:
   <span id="updated">Noch keine Daten</span>
@@ -286,6 +292,7 @@ const airports = [
 const MAX_DATA_AGE_MINUTES = 240;
 const LIVE_FALLBACK_AFTER_MINUTES = 55;
 const GAS_PATH_LIMIT = 5.0;
+const FUEL_DRAINING_LIMIT = 0.0;
 
 /* --------------------------------------------------------
    Hilfsfunktionen
@@ -447,6 +454,8 @@ function render(data) {
 
   let goCount = 0;
   let noGoCount = 0;
+  let fuelGoCount = 0;
+  let fuelNoGoCount = 0;
   let noDataCount = 0;
 
   airports.forEach(airport => {
@@ -457,7 +466,7 @@ function render(data) {
     const hasCurrentTemperature = item && isNumber(item.currentTemp);
     const hasForecast = item && isNumber(item.min24h) && item.min24hTime;
 
-    // Maßgeblich für Gas Path Cleaning: Nacht-Minimum (20–06 Uhr), Fallback auf 24h-Minimum
+    // Maßgeblich für Nacht-Operationen: Nacht-Minimum (20–06 Uhr), Fallback auf 24h-Minimum
     const relevantMin = item && isNumber(item.nightMin)
       ? item.nightMin
       : item?.min24h;
@@ -469,7 +478,7 @@ function render(data) {
     const valid = hasCurrentTemperature && hasForecast && isNumber(relevantMin) && dataIsFresh;
 
     /* ----------------------------------------------------
-       GAS PATH CLEANING
+       GAS PATH CLEANING (>= 5.0 °C = GO)
     ---------------------------------------------------- */
 
     let gasPathText = "⚪ NO DATA · KEINE FREIGABE";
@@ -485,6 +494,23 @@ function render(data) {
       noGoCount++;
     } else {
       noDataCount++;
+    }
+
+    /* ----------------------------------------------------
+       FUEL DRAINING (> 0.0 °C = GO, <= 0.0 °C = NO GO)
+    ---------------------------------------------------- */
+
+    let fuelDrainText = "⚪ NO DATA · KEINE FREIGABE";
+    let fuelDrainCss = "gray";
+
+    if (valid && relevantMin > FUEL_DRAINING_LIMIT) {
+      fuelDrainText = "🟢 GO · FUEL DRAINING";
+      fuelDrainCss = "green";
+      fuelGoCount++;
+    } else if (valid && relevantMin <= FUEL_DRAINING_LIMIT) {
+      fuelDrainText = "🔴 NO GO · FUEL DRAINING";
+      fuelDrainCss = "red";
+      fuelNoGoCount++;
     }
 
     /* ----------------------------------------------------
@@ -560,6 +586,11 @@ function render(data) {
         ${gasPathText}
       </div>
 
+      <div class="fueldrain-status ${fuelDrainCss}">
+        <span class="status-title">FUEL DRAINING (NACHT 20–06H)</span>
+        ${fuelDrainText}
+      </div>
+
       <div class="details">
         <div class="detail-row">
           <span>Nacht-Min (20–06 Uhr)</span>
@@ -602,12 +633,12 @@ function render(data) {
     summaryText =
       "Wetterdaten sind älter als " +
       MAX_DATA_AGE_MINUTES +
-      " Minuten. Keine Gas-Path-Freigabe.";
+      " Minuten. Keine Freigaben.";
   } else {
     summaryText =
-      `${goCount} Airport(s) GO · ` +
-      `${noGoCount} Airport(s) NO GO · ` +
-      `${noDataCount} ohne gültige Daten.`;
+      `Gas Path Cleaning: ${goCount} GO · ${noGoCount} NO GO | ` +
+      `Fuel Draining: ${fuelGoCount} GO · ${fuelNoGoCount} NO GO` +
+      (noDataCount > 0 ? ` · ${noDataCount} ohne gültige Daten.` : ".");
   }
 
   document.getElementById("summary").textContent = summaryText;
@@ -633,7 +664,6 @@ async function loadWeather() {
     const data = await response.json();
     const age = dataAgeMinutes(data.updatedAt);
 
-    // Prüfen, ob alle 6 Flughäfen gültige Werte haben und die Daten frisch sind
     const allComplete = airports.every(ap => {
       const found = (data.airports || []).find(a => a.code === ap.code);
       return found && isNumber(found.currentTemp) && isNumber(found.min24h);
