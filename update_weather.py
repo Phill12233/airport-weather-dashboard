@@ -6,9 +6,7 @@ import re
 import urllib.request
 import zipfile
 
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -67,8 +65,17 @@ OUTPUT_FILE = Path("weather.json")
 
 GAS_PATH_LIMIT_C = 5.0
 
+# Ein CDC-Messwert wird nur dann als aktuell übernommen,
+# wenn er nicht älter als drei Stunden ist.
+MAX_MEASUREMENT_AGE_HOURS = 3
+
+# Maximale Entfernung für einen automatischen MOSMIX-Punkt.
+# Bei den genannten Airports sollte der Abstand deutlich
+# darunter liegen.
+MAX_MOSMIX_DISTANCE_KM = 50
+
 USER_AGENT = (
-    "airport-weather-dashboard/2.0 "
+    "airport-weather-dashboard/3.0 "
     "(GitHub Actions; DWD Open Data)"
 )
 
@@ -86,22 +93,22 @@ CDC_STATION_FILE_URL = (
 )
 
 
-MOSMIX_BASE_URL = (
+# Eine gemeinsame Datei mit allen MOSMIX-L-Punkten.
+# Dadurch müssen keine möglicherweise falschen
+# Stationskennungen fest programmiert werden.
+MOSMIX_ALL_STATIONS_URL = (
     "https://opendata.dwd.de/"
     "weather/local_forecasts/mos/"
-    "MOSMIX_L/single_stations/"
+    "MOSMIX_L/all_stations/kml/"
+    "MOSMIX_L_LATEST_240.kmz"
 )
 
 
 # ============================================================
-# HTTP-FUNKTIONEN
+# HTTP
 # ============================================================
 
 def download_bytes(url):
-    """
-    Datei vom DWD herunterladen.
-    """
-
     request = urllib.request.Request(
         url,
         headers={
@@ -112,22 +119,13 @@ def download_bytes(url):
 
     with urllib.request.urlopen(
         request,
-        timeout=120,
+        timeout=180,
     ) as response:
         return response.read()
 
 
-def download_text(
-    url,
-    encoding="utf-8",
-):
-    """
-    Textdatei vom DWD herunterladen.
-    """
-
-    data = download_bytes(url)
-
-    return data.decode(
+def download_text(url, encoding="utf-8"):
+    return download_bytes(url).decode(
         encoding,
         errors="replace",
     )
@@ -166,47 +164,32 @@ def float_or_none(value):
         return None
 
 
-def round_or_none(
-    value,
-    digits=1,
-):
+def round_or_none(value, digits=1):
     if value is None:
         return None
 
-    return round(
-        float(value),
-        digits,
-    )
+    return round(float(value), digits)
 
 
 def kelvin_to_celsius(value):
     if value is None:
         return None
 
-    return round(
-        value - 273.15,
-        1,
-    )
+    return round(value - 273.15, 1)
 
 
 def metres_per_second_to_kmh(value):
     if value is None:
         return None
 
-    return round(
-        value * 3.6,
-        1,
-    )
+    return round(value * 3.6, 1)
 
 
 def pascal_to_hectopascal(value):
     if value is None:
         return None
 
-    return round(
-        value / 100.0,
-        1,
-    )
+    return round(value / 100.0, 1)
 
 
 def utc_iso(value):
@@ -218,9 +201,7 @@ def utc_iso(value):
             tzinfo=timezone.utc
         )
 
-    value = value.astimezone(
-        timezone.utc
-    )
+    value = value.astimezone(timezone.utc)
 
     return (
         value
@@ -230,64 +211,88 @@ def utc_iso(value):
     )
 
 
-def distance_km(
-    latitude_1,
-    longitude_1,
-    latitude_2,
-    longitude_2,
-):
-    """
-    Entfernung zweier geografischer Punkte
-    nach der Haversine-Formel.
-    """
+def distance_km(lat1, lon1, lat2, lon2):
+    radius = 6371.0
 
-    earth_radius_km = 6371.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
 
-    phi_1 = math.radians(latitude_1)
-    phi_2 = math.radians(latitude_2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
 
-    delta_phi = math.radians(
-        latitude_2 - latitude_1
-    )
-
-    delta_lambda = math.radians(
-        longitude_2 - longitude_1
-    )
-
-    haversine = (
+    value = (
         math.sin(delta_phi / 2) ** 2
-        + math.cos(phi_1)
-        * math.cos(phi_2)
+        + math.cos(phi1)
+        * math.cos(phi2)
         * math.sin(delta_lambda / 2) ** 2
     )
 
     central_angle = 2 * math.atan2(
-        math.sqrt(haversine),
-        math.sqrt(1 - haversine),
+        math.sqrt(value),
+        math.sqrt(1 - value),
     )
 
-    return earth_radius_km * central_angle
+    return radius * central_angle
+
+
+def local_name(tag):
+    return tag.split("}")[-1]
+
+
+def element_text(element):
+    if element is None:
+        return ""
+
+    return "".join(
+        element.itertext()
+    ).strip()
+
+
+def element_attribute(element, requested_name):
+    for key, value in element.attrib.items():
+        if local_name(key) == requested_name:
+            return value
+
+    return None
+
+
+def find_elements(root, requested_name):
+    return [
+        element
+        for element in root.iter()
+        if local_name(element.tag)
+        == requested_name
+    ]
+
+
+def parse_number_list(text):
+    values = []
+
+    for item in text.split():
+        values.append(
+            float_or_none(item)
+        )
+
+    return values
+
+
+def series_value(series, index):
+    if index >= len(series):
+        return None
+
+    return series[index]
 
 
 # ============================================================
-# CDC-STATIONEN
+# CDC-VERZEICHNIS UND STATIONEN
 # ============================================================
 
-def load_cdc_directory():
-    """
-    CDC-Verzeichnis einlesen.
-
-    Liefert:
-    - HTML-Inhalt
-    - Mapping Stations-ID -> ZIP-URL
-    """
-
+def load_cdc_zip_mapping():
     directory_html = download_text(
-        CDC_BASE_URL,
-        encoding="utf-8",
+        CDC_BASE_URL
     )
 
-    zip_mapping = {}
+    mapping = {}
 
     pattern = re.compile(
         r'href="([^"]*stundenwerte_TU_'
@@ -307,28 +312,17 @@ def load_cdc_directory():
         else:
             url = CDC_BASE_URL + filename
 
-        zip_mapping[station_id] = url
+        mapping[station_id] = url
 
-    if not zip_mapping:
+    if not mapping:
         raise RuntimeError(
-            "Im CDC-Verzeichnis wurden keine "
-            "aktuellen Temperatur-ZIP-Dateien gefunden."
+            "Keine CDC-Temperaturdateien gefunden."
         )
 
-    return directory_html, zip_mapping
+    return mapping
 
 
-def load_cdc_stations(
-    available_zip_mapping,
-):
-    """
-    DWD-Stationsbeschreibung einlesen.
-
-    Es werden nur Stationen übernommen, für die
-    im recent-Verzeichnis auch eine aktuelle ZIP-Datei
-    vorhanden ist.
-    """
-
+def load_cdc_stations(zip_mapping):
     station_text = download_text(
         CDC_STATION_FILE_URL,
         encoding="latin-1",
@@ -345,60 +339,44 @@ def load_cdc_stations(
         ):
             continue
 
-        # Format:
-        # Stations_id
-        # von_datum
-        # bis_datum
-        # Stationshoehe
-        # geoBreite
-        # geoLaenge
-        # Stationsname
-        # Bundesland
+        # Nur die ersten sechs strukturierten Felder
+        # werden über Split gelesen. Dadurch kann die
+        # uneinheitliche letzte Metadatenspalte den
+        # Parser nicht mehr beschädigen.
+        parts = line.split()
 
-        match = re.match(
-            r"^\s*(\d+)\s+"
-            r"(\d{8})\s+"
-            r"(\d{8})\s+"
-            r"(-?[0-9.]+)\s+"
-            r"(-?[0-9.]+)\s+"
-            r"(-?[0-9.]+)\s+"
-            r"(.+?)\s+"
-            r"([A-Za-zÄÖÜäöüß /-]+)"
-            r"\s*$",
-            line,
-        )
-
-        if not match:
+        if len(parts) < 7:
             continue
 
-        station_id = (
-            match.group(1).zfill(5)
-        )
+        station_id_raw = parts[0]
 
-        latitude = float_or_none(
-            match.group(5)
-        )
-
-        longitude = float_or_none(
-            match.group(6)
-        )
-
-        station_name = (
-            match.group(7).strip()
-        )
-
-        federal_state = (
-            match.group(8).strip()
-        )
-
-        if latitude is None:
+        if not station_id_raw.isdigit():
             continue
 
-        if longitude is None:
+        station_id = station_id_raw.zfill(5)
+
+        latitude = float_or_none(parts[4])
+        longitude = float_or_none(parts[5])
+
+        if latitude is None or longitude is None:
             continue
 
-        if station_id not in available_zip_mapping:
+        if station_id not in zip_mapping:
             continue
+
+        # Stationsname aus dem Rest der Zeile.
+        # Bundesland und zusätzliche Kennzeichen werden
+        # absichtlich nicht mehr verarbeitet.
+        remaining = parts[6:]
+
+        station_name = " ".join(
+            remaining
+        ).strip()
+
+        if not station_name:
+            station_name = (
+                "DWD-Station " + station_id
+            )
 
         stations.append(
             {
@@ -406,35 +384,25 @@ def load_cdc_stations(
                 "latitude": latitude,
                 "longitude": longitude,
                 "name": station_name,
-                "federalState": federal_state,
-                "zipUrl":
-                    available_zip_mapping[
-                        station_id
-                    ],
+                "zipUrl": zip_mapping[
+                    station_id
+                ],
             }
         )
 
     if not stations:
         raise RuntimeError(
-            "Es konnten keine verwendbaren "
-            "CDC-Stationen eingelesen werden."
+            "Keine verwendbaren CDC-Stationen gefunden."
         )
 
     return stations
 
 
-def nearest_stations(
+def nearest_cdc_stations(
     airport,
     stations,
     maximum_candidates=15,
 ):
-    """
-    Gibt mehrere nahe Stationen zurück.
-
-    Dadurch hängt ein Airport nicht mehr nur von
-    einer einzigen Station ab.
-    """
-
     candidates = []
 
     for station in stations:
@@ -460,19 +428,10 @@ def nearest_stations(
             station["distanceKm"]
     )
 
-    return candidates[
-        :maximum_candidates
-    ]
+    return candidates[:maximum_candidates]
 
 
-def load_latest_cdc_temperature(
-    station,
-):
-    """
-    Letzten gültigen CDC-Temperaturwert
-    einer Station auslesen.
-    """
-
+def read_latest_cdc_value(station):
     zip_data = download_bytes(
         station["zipUrl"]
     )
@@ -483,8 +442,7 @@ def load_latest_cdc_temperature(
 
         product_files = [
             filename
-            for filename
-            in archive.namelist()
+            for filename in archive.namelist()
             if filename.lower().endswith(
                 ".txt"
             )
@@ -494,17 +452,12 @@ def load_latest_cdc_temperature(
 
         if not product_files:
             raise RuntimeError(
-                "Temperatur-Produktdatei "
-                "fehlt im ZIP-Archiv."
+                "Temperaturdatei fehlt im ZIP."
             )
-
-        product_filename = (
-            product_files[0]
-        )
 
         product_text = (
             archive
-            .read(product_filename)
+            .read(product_files[0])
             .decode(
                 "latin-1",
                 errors="replace",
@@ -516,7 +469,7 @@ def load_latest_cdc_temperature(
         delimiter=";",
     )
 
-    latest_measurement = None
+    latest = None
 
     for raw_row in reader:
         row = {}
@@ -525,15 +478,11 @@ def load_latest_cdc_temperature(
             if key is None:
                 continue
 
-            clean_key = key.strip()
-
-            clean_value = (
+            row[key.strip()] = (
                 value.strip()
                 if isinstance(value, str)
                 else value
             )
-
-            row[clean_key] = clean_value
 
         timestamp_text = row.get(
             "MESS_DATUM"
@@ -561,32 +510,35 @@ def load_latest_cdc_temperature(
             continue
 
         if (
-            latest_measurement is None
-            or timestamp
-            > latest_measurement["timestamp"]
+            latest is None
+            or timestamp > latest["timestamp"]
         ):
-            latest_measurement = {
+            latest = {
                 "timestamp": timestamp,
                 "temperature": temperature,
             }
 
-    if latest_measurement is None:
+    if latest is None:
         raise RuntimeError(
-            "Keine gültige Temperaturmessung "
-            "in der CDC-Datei gefunden."
+            "Keine gültige Temperaturmessung."
         )
+
+    age_hours = (
+        datetime.now(timezone.utc)
+        - latest["timestamp"]
+    ).total_seconds() / 3600
 
     return {
         "temperature": round(
-            latest_measurement[
-                "temperature"
-            ],
+            latest["temperature"],
             1,
         ),
         "time": utc_iso(
-            latest_measurement[
-                "timestamp"
-            ]
+            latest["timestamp"]
+        ),
+        "ageHours": round(
+            age_hours,
+            1,
         ),
     }
 
@@ -595,18 +547,9 @@ def get_current_temperature(
     airport,
     stations,
 ):
-    """
-    Versucht mehrere nahe CDC-Stationen.
-
-    Wenn die nächste Station keine Daten liefert,
-    wird automatisch die nächste geeignete Station
-    geprüft.
-    """
-
-    candidates = nearest_stations(
+    candidates = nearest_cdc_stations(
         airport,
         stations,
-        maximum_candidates=15,
     )
 
     errors = []
@@ -614,10 +557,24 @@ def get_current_temperature(
     for station in candidates:
         try:
             measurement = (
-                load_latest_cdc_temperature(
+                read_latest_cdc_value(
                     station
                 )
             )
+
+            # Veraltete Werte werden nicht als
+            # aktuelle Messung übernommen.
+            if (
+                measurement["ageHours"]
+                > MAX_MEASUREMENT_AGE_HOURS
+            ):
+                errors.append(
+                    f"{station['stationId']} "
+                    f"{station['name']}: "
+                    f"Messwert "
+                    f"{measurement['ageHours']} h alt"
+                )
+                continue
 
             return {
                 "temperature":
@@ -626,15 +583,15 @@ def get_current_temperature(
                 "time":
                     measurement["time"],
 
+                "ageHours":
+                    measurement["ageHours"],
+
                 "station": {
                     "stationId":
                         station["stationId"],
 
                     "name":
                         station["name"],
-
-                    "federalState":
-                        station["federalState"],
 
                     "distanceKm":
                         station["distanceKm"],
@@ -643,114 +600,27 @@ def get_current_temperature(
 
         except Exception as error:
             errors.append(
-                f"{station['stationId']} "
-                f"{station['name']}: {error}"
+                f"{station['stationId']}: {error}"
             )
 
     raise RuntimeError(
-        "Keine der "
-        f"{len(candidates)} nächsten "
-        "CDC-Stationen lieferte Daten. "
-        + " | ".join(errors[:3])
+        "Keine aktuelle CDC-Messung innerhalb "
+        f"von {MAX_MEASUREMENT_AGE_HOURS} Stunden. "
+        + " | ".join(errors[:4])
     )
 
 
 # ============================================================
-# MOSMIX-KML-HILFSFUNKTIONEN
+# MOSMIX-DATEI EINMALIG LADEN
 # ============================================================
 
-def local_name(tag):
-    """
-    XML-Namespace aus einem Tag entfernen.
-    """
-
-    return tag.split("}")[-1]
-
-
-def element_attribute(
-    element,
-    attribute_name,
-):
-    for key, value in (
-        element.attrib.items()
-    ):
-        if local_name(key) == attribute_name:
-            return value
-
-    return None
-
-
-def element_text(element):
-    if element is None:
-        return ""
-
-    return "".join(
-        element.itertext()
-    ).strip()
-
-
-def find_elements_by_local_name(
-    root,
-    requested_name,
-):
-    return [
-        element
-        for element in root.iter()
-        if local_name(element.tag)
-        == requested_name
-    ]
-
-
-def parse_number_list(value):
-    parsed_values = []
-
-    for item in value.split():
-        if item in {
-            "",
-            "-",
-            "-999",
-            "-999.0",
-        }:
-            parsed_values.append(None)
-        else:
-            parsed_values.append(
-                float_or_none(item)
-            )
-
-    return parsed_values
-
-
-def get_series_value(
-    series,
-    index,
-):
-    if index >= len(series):
-        return None
-
-    return series[index]
-
-
-# ============================================================
-# MOSMIX-PROGNOSE
-# ============================================================
-
-def load_mosmix_forecast(
-    airport,
-):
-    """
-    MOSMIX-L-Datei anhand der ICAO-Kennung laden.
-    """
-
-    icao = airport["icao"]
-
-    kmz_url = (
-        MOSMIX_BASE_URL
-        + f"{icao}/kml/"
-        + f"MOSMIX_L_LATEST_{icao}.kmz"
+def load_mosmix_document():
+    print(
+        "Lade gemeinsame MOSMIX-L-Datei ..."
     )
 
     kmz_data = download_bytes(
-        kmz_url
+        MOSMIX_ALL_STATIONS_URL
     )
 
     with zipfile.ZipFile(
@@ -759,8 +629,7 @@ def load_mosmix_forecast(
 
         kml_files = [
             filename
-            for filename
-            in archive.namelist()
+            for filename in archive.namelist()
             if filename.lower().endswith(
                 ".kml"
             )
@@ -768,47 +637,35 @@ def load_mosmix_forecast(
 
         if not kml_files:
             raise RuntimeError(
-                "MOSMIX-KMZ enthält "
-                "keine KML-Datei."
+                "MOSMIX-KMZ enthält keine KML."
             )
 
         kml_data = archive.read(
             kml_files[0]
         )
 
-    root = ET.fromstring(
-        kml_data
-    )
-
-    # --------------------------------------------------------
-    # Zeitachse
-    # --------------------------------------------------------
+    root = ET.fromstring(kml_data)
 
     timestamps = []
 
-    time_elements = (
-        find_elements_by_local_name(
-            root,
-            "TimeStep",
-        )
-    )
+    for element in find_elements(
+        root,
+        "TimeStep",
+    ):
+        text = element_text(element)
 
-    for element in time_elements:
-        value = element_text(element)
-
-        if not value:
+        if not text:
             timestamps.append(None)
             continue
 
         try:
-            timestamp = (
-                datetime.fromisoformat(
-                    value.replace(
-                        "Z",
-                        "+00:00",
-                    )
+            timestamp = datetime.fromisoformat(
+                text.replace(
+                    "Z",
+                    "+00:00",
                 )
-                .astimezone(timezone.utc)
+            ).astimezone(
+                timezone.utc
             )
 
             timestamps.append(timestamp)
@@ -821,55 +678,155 @@ def load_mosmix_forecast(
             "MOSMIX enthält keine Zeitachse."
         )
 
-    # --------------------------------------------------------
-    # Placemark suchen
-    # --------------------------------------------------------
-
-    placemarks = (
-        find_elements_by_local_name(
-            root,
-            "Placemark",
-        )
+    placemarks = find_elements(
+        root,
+        "Placemark",
     )
 
     if not placemarks:
         raise RuntimeError(
-            "MOSMIX enthält kein Placemark."
+            "MOSMIX enthält keine Prognosepunkte."
         )
 
-    selected_placemark = None
+    print(
+        len(placemarks),
+        "MOSMIX-Prognosepunkte geladen."
+    )
 
-    for placemark in placemarks:
-        placemark_string = ET.tostring(
+    return {
+        "timestamps": timestamps,
+        "placemarks": placemarks,
+    }
+
+
+def placemark_coordinates(placemark):
+    coordinate_elements = (
+        find_elements(
             placemark,
-            encoding="unicode",
-        )
-
-        if icao in placemark_string:
-            selected_placemark = (
-                placemark
-            )
-            break
-
-    # Single-Station-Datei sollte genau
-    # ein relevantes Placemark enthalten.
-    if selected_placemark is None:
-        selected_placemark = placemarks[0]
-
-    # --------------------------------------------------------
-    # Wetterparameter einlesen
-    # --------------------------------------------------------
-
-    forecast_values = {}
-
-    forecast_elements = (
-        find_elements_by_local_name(
-            selected_placemark,
-            "Forecast",
+            "coordinates",
         )
     )
 
-    for forecast in forecast_elements:
+    if not coordinate_elements:
+        return None
+
+    coordinate_text = element_text(
+        coordinate_elements[0]
+    )
+
+    if not coordinate_text:
+        return None
+
+    first_coordinate = (
+        coordinate_text
+        .strip()
+        .split()[0]
+    )
+
+    parts = first_coordinate.split(",")
+
+    if len(parts) < 2:
+        return None
+
+    longitude = float_or_none(parts[0])
+    latitude = float_or_none(parts[1])
+
+    if latitude is None or longitude is None:
+        return None
+
+    return {
+        "latitude": latitude,
+        "longitude": longitude,
+    }
+
+
+def placemark_name(placemark):
+    names = find_elements(
+        placemark,
+        "name",
+    )
+
+    if not names:
+        return "Unbekannter MOSMIX-Punkt"
+
+    return element_text(names[0])
+
+
+def nearest_mosmix_placemark(
+    airport,
+    placemarks,
+):
+    candidates = []
+
+    for placemark in placemarks:
+        coordinates = placemark_coordinates(
+            placemark
+        )
+
+        if coordinates is None:
+            continue
+
+        distance = distance_km(
+            airport["latitude"],
+            airport["longitude"],
+            coordinates["latitude"],
+            coordinates["longitude"],
+        )
+
+        candidates.append(
+            {
+                "placemark": placemark,
+                "distanceKm": distance,
+                "latitude":
+                    coordinates["latitude"],
+                "longitude":
+                    coordinates["longitude"],
+                "name":
+                    placemark_name(placemark),
+            }
+        )
+
+    if not candidates:
+        raise RuntimeError(
+            "Kein MOSMIX-Punkt mit Koordinaten."
+        )
+
+    candidates.sort(
+        key=lambda item:
+            item["distanceKm"]
+    )
+
+    selected = candidates[0]
+
+    if (
+        selected["distanceKm"]
+        > MAX_MOSMIX_DISTANCE_KM
+    ):
+        raise RuntimeError(
+            "Nächster MOSMIX-Punkt ist "
+            f"{selected['distanceKm']:.1f} km "
+            "entfernt."
+        )
+
+    selected["distanceKm"] = round(
+        selected["distanceKm"],
+        1,
+    )
+
+    return selected
+
+
+# ============================================================
+# MOSMIX-PARAMETER AUSLESEN
+# ============================================================
+
+def parse_forecast_series(placemark):
+    forecast_values = {}
+
+    for forecast in find_elements(
+        placemark,
+        "Forecast",
+    ):
         parameter_name = (
             element_attribute(
                 forecast,
@@ -880,242 +837,163 @@ def load_mosmix_forecast(
         if not parameter_name:
             continue
 
-        value_elements = [
-            element
-            for element in forecast.iter()
-            if local_name(element.tag)
-            == "value"
-        ]
+        value_elements = find_elements(
+            forecast,
+            "value",
+        )
 
         if not value_elements:
             continue
 
-        value_text = element_text(
-            value_elements[0]
-        )
-
         forecast_values[
             parameter_name
         ] = parse_number_list(
-            value_text
+            element_text(
+                value_elements[0]
+            )
         )
 
-    temperatures = (
-        forecast_values.get(
-            "TTT",
-            [],
-        )
+    return forecast_values
+
+
+def create_mosmix_forecast(
+    airport,
+    mosmix_document,
+):
+    selected = nearest_mosmix_placemark(
+        airport,
+        mosmix_document["placemarks"],
+    )
+
+    series = parse_forecast_series(
+        selected["placemark"]
+    )
+
+    temperatures = series.get(
+        "TTT",
+        [],
     )
 
     if not temperatures:
         raise RuntimeError(
-            "MOSMIX-Parameter TTT "
-            "für Temperatur fehlt."
+            "Temperaturparameter TTT fehlt."
         )
 
-    dewpoints = (
-        forecast_values.get(
-            "Td",
-            [],
-        )
-    )
-
-    wind_speeds = (
-        forecast_values.get(
-            "FF",
-            [],
-        )
-    )
-
-    wind_directions = (
-        forecast_values.get(
-            "DD",
-            [],
-        )
-    )
-
-    gusts_1h = (
-        forecast_values.get(
-            "FX1",
-            [],
-        )
-    )
-
-    gusts_3h = (
-        forecast_values.get(
-            "FX3",
-            [],
-        )
-    )
-
-    pressures = (
-        forecast_values.get(
-            "PPPP",
-            [],
-        )
-    )
+    dewpoints = series.get("Td", [])
+    winds = series.get("FF", [])
+    directions = series.get("DD", [])
+    gusts_1h = series.get("FX1", [])
+    gusts_3h = series.get("FX3", [])
+    pressures = series.get("PPPP", [])
 
     precipitation = (
-        forecast_values.get("RR1c")
-        or forecast_values.get("RR1")
+        series.get("RR1c")
+        or series.get("RR1")
         or []
     )
-
-    # --------------------------------------------------------
-    # Stündliche Datensätze
-    # --------------------------------------------------------
 
     rows = []
 
     for index, timestamp in enumerate(
-        timestamps
+        mosmix_document["timestamps"]
     ):
         if timestamp is None:
             continue
 
-        temperature_kelvin = (
-            get_series_value(
+        temperature = kelvin_to_celsius(
+            series_value(
                 temperatures,
                 index,
             )
         )
 
-        temperature_celsius = (
-            kelvin_to_celsius(
-                temperature_kelvin
-            )
-        )
-
-        if temperature_celsius is None:
+        if temperature is None:
             continue
 
-        dewpoint_celsius = (
-            kelvin_to_celsius(
-                get_series_value(
-                    dewpoints,
-                    index,
-                )
-            )
-        )
-
-        wind_kmh = (
-            metres_per_second_to_kmh(
-                get_series_value(
-                    wind_speeds,
-                    index,
-                )
-            )
-        )
-
-        gust_value = (
-            get_series_value(
-                gusts_1h,
-                index,
-            )
+        gust_value = series_value(
+            gusts_1h,
+            index,
         )
 
         if gust_value is None:
-            gust_value = (
-                get_series_value(
-                    gusts_3h,
-                    index,
-                )
+            gust_value = series_value(
+                gusts_3h,
+                index,
             )
-
-        gust_kmh = (
-            metres_per_second_to_kmh(
-                gust_value
-            )
-        )
-
-        wind_direction = (
-            round_or_none(
-                get_series_value(
-                    wind_directions,
-                    index,
-                ),
-                0,
-            )
-        )
-
-        pressure_hpa = (
-            pascal_to_hectopascal(
-                get_series_value(
-                    pressures,
-                    index,
-                )
-            )
-        )
-
-        precipitation_mm = (
-            round_or_none(
-                get_series_value(
-                    precipitation,
-                    index,
-                ),
-                1,
-            )
-        )
 
         rows.append(
             {
                 "timestamp": timestamp,
 
-                "time":
-                    utc_iso(timestamp),
+                "time": utc_iso(timestamp),
 
-                "temperature":
-                    temperature_celsius,
+                "temperature": temperature,
 
                 "dewPoint":
-                    dewpoint_celsius,
+                    kelvin_to_celsius(
+                        series_value(
+                            dewpoints,
+                            index,
+                        )
+                    ),
 
                 "windKmh":
-                    wind_kmh,
+                    metres_per_second_to_kmh(
+                        series_value(
+                            winds,
+                            index,
+                        )
+                    ),
 
                 "gustKmh":
-                    gust_kmh,
+                    metres_per_second_to_kmh(
+                        gust_value
+                    ),
 
                 "windDirectionDegrees":
-                    wind_direction,
+                    round_or_none(
+                        series_value(
+                            directions,
+                            index,
+                        ),
+                        0,
+                    ),
 
                 "pressureHpa":
-                    pressure_hpa,
+                    pascal_to_hectopascal(
+                        series_value(
+                            pressures,
+                            index,
+                        )
+                    ),
 
                 "precipMm":
-                    precipitation_mm,
+                    round_or_none(
+                        series_value(
+                            precipitation,
+                            index,
+                        ),
+                        1,
+                    ),
             }
         )
 
-    if not rows:
-        raise RuntimeError(
-            "MOSMIX enthält keine "
-            "gültigen Temperaturwerte."
-        )
-
-    now = datetime.now(
-        timezone.utc
-    )
-
-    forecast_end = (
-        now
-        + timedelta(hours=24)
-    )
+    now = datetime.now(timezone.utc)
+    end = now + timedelta(hours=24)
 
     next_24_hours = [
         row
         for row in rows
         if (
             row["timestamp"] >= now
-            and row["timestamp"]
-            <= forecast_end
+            and row["timestamp"] <= end
         )
     ]
 
     if not next_24_hours:
         raise RuntimeError(
-            "Keine MOSMIX-Prognosewerte "
-            "für die nächsten 24 Stunden."
+            "Keine Forecastwerte für die "
+            "nächsten 24 Stunden."
         )
 
     minimum_row = min(
@@ -1124,14 +1002,13 @@ def load_mosmix_forecast(
             row["temperature"],
     )
 
-    hourly_output = []
+    hourly = []
 
     for row in next_24_hours:
-        hourly_output.append(
+        hourly.append(
             {
                 key: value
-                for key, value
-                in row.items()
+                for key, value in row.items()
                 if key != "timestamp"
             }
         )
@@ -1150,10 +1027,17 @@ def load_mosmix_forecast(
             next_24_hours[-1]["time"],
 
         "hourly":
-            hourly_output,
+            hourly,
 
-        "kmzUrl":
-            kmz_url,
+        "mosmixStation": {
+            "id": selected["name"],
+            "distanceKm":
+                selected["distanceKm"],
+            "latitude":
+                selected["latitude"],
+            "longitude":
+                selected["longitude"],
+        },
     }
 
 
@@ -1161,51 +1045,37 @@ def load_mosmix_forecast(
 # STATUSLOGIK
 # ============================================================
 
-def get_weather_status(
-    minimum_temperature,
-):
-    if minimum_temperature is None:
+def get_weather_status(minimum):
+    if minimum is None:
         return "NO DATA"
 
-    if minimum_temperature < -5:
+    if minimum < -5:
         return "CRITICAL"
 
-    if minimum_temperature < 0:
+    if minimum < 0:
         return "WARNING"
 
-    if minimum_temperature <= 3:
+    if minimum <= 3:
         return "WATCH"
 
     return "SAFE"
 
 
-def get_gas_path_status(
-    minimum_temperature,
-):
-    """
-    Gas Path Cleaning darf nur gemacht werden,
-    wenn das 24-h-Minimum mindestens +5 °C beträgt.
-    """
-
-    if minimum_temperature is None:
+def get_gas_path_status(minimum):
+    if minimum is None:
         return "NO DATA"
 
-    if (
-        minimum_temperature
-        >= GAS_PATH_LIMIT_C
-    ):
+    if minimum >= GAS_PATH_LIMIT_C:
         return "GO"
 
     return "NO GO"
 
 
 # ============================================================
-# AIRPORT VERARBEITEN
+# AIRPORT-ERGEBNIS
 # ============================================================
 
-def create_empty_airport_result(
-    airport,
-):
+def empty_airport_result(airport):
     return {
         "code": airport["code"],
         "icao": airport["icao"],
@@ -1213,10 +1083,10 @@ def create_empty_airport_result(
 
         "currentTemp": None,
         "currentTempTime": None,
+        "currentTempAgeHours": None,
 
         "min24h": None,
         "min24hTime": None,
-
         "forecastStart": None,
         "forecastEnd": None,
 
@@ -1224,41 +1094,35 @@ def create_empty_airport_result(
         "weatherStatus": "NO DATA",
 
         "measurementStation": None,
+        "mosmixStation": None,
 
         "hourly": [],
-
         "errors": [],
     }
 
 
 def create_airport_result(
     airport,
-    stations,
+    cdc_stations,
+    mosmix_document,
 ):
     print("")
     print("=" * 60)
-
     print(
-        f"Verarbeite "
-        f"{airport['code']} "
+        f"Verarbeite {airport['code']} "
         f"({airport['icao']})"
     )
 
-    result = (
-        create_empty_airport_result(
-            airport
-        )
+    result = empty_airport_result(
+        airport
     )
 
-    # --------------------------------------------------------
-    # Aktueller CDC-Messwert
-    # --------------------------------------------------------
-
+    # CDC-Messung
     try:
         measurement = (
             get_current_temperature(
                 airport,
-                stations,
+                cdc_stations,
             )
         )
 
@@ -1270,43 +1134,31 @@ def create_airport_result(
             measurement["time"]
         )
 
-        result[
-            "measurementStation"
-        ] = measurement["station"]
+        result["currentTempAgeHours"] = (
+            measurement["ageHours"]
+        )
+
+        result["measurementStation"] = (
+            measurement["station"]
+        )
 
         print(
-            "CDC erfolgreich:",
+            "CDC:",
             result["currentTemp"],
-            "°C",
-            "Station:",
-            measurement["station"]["name"],
-            "Entfernung:",
-            measurement["station"][
-                "distanceKm"
-            ],
-            "km",
+            "°C |",
+            result["measurementStation"]["name"],
         )
 
     except Exception as error:
-        error_message = (
-            f"CDC: {error}"
-        )
+        message = f"CDC: {error}"
+        result["errors"].append(message)
+        print(message)
 
-        result["errors"].append(
-            error_message
-        )
-
-        print(error_message)
-
-    # --------------------------------------------------------
     # MOSMIX-Prognose
-    # --------------------------------------------------------
-
     try:
-        forecast = (
-            load_mosmix_forecast(
-                airport
-            )
+        forecast = create_mosmix_forecast(
+            airport,
+            mosmix_document,
         )
 
         result["min24h"] = (
@@ -1329,6 +1181,10 @@ def create_airport_result(
             forecast["hourly"]
         )
 
+        result["mosmixStation"] = (
+            forecast["mosmixStation"]
+        )
+
         result["weatherStatus"] = (
             get_weather_status(
                 result["min24h"]
@@ -1342,37 +1198,23 @@ def create_airport_result(
         )
 
         print(
-            "MOSMIX erfolgreich:",
-            "Minimum:",
+            "MOSMIX:",
             result["min24h"],
-            "°C",
-            "Zeit:",
+            "°C |",
             result["min24hTime"],
+            "| Punkt:",
+            result["mosmixStation"]["id"],
+            "| Entfernung:",
+            result["mosmixStation"][
+                "distanceKm"
+            ],
+            "km",
         )
 
     except Exception as error:
-        error_message = (
-            f"MOSMIX: {error}"
-        )
-
-        result["errors"].append(
-            error_message
-        )
-
-        print(error_message)
-
-    print(
-        "Ergebnis:",
-        airport["code"],
-        "Aktuell:",
-        result["currentTemp"],
-        "Minimum:",
-        result["min24h"],
-        "Weather:",
-        result["weatherStatus"],
-        "Gas Path:",
-        result["gasPathCleaning"],
-    )
+        message = f"MOSMIX: {error}"
+        result["errors"].append(message)
+        print(message)
 
     return result
 
@@ -1387,8 +1229,9 @@ def main():
     )
 
     output = {
-        "updatedAt":
-            utc_iso(generated_at),
+        "updatedAt": utc_iso(
+            generated_at
+        ),
 
         "source":
             "Deutscher Wetterdienst "
@@ -1397,75 +1240,78 @@ def main():
         "gasPathCleaningLimitC":
             GAS_PATH_LIMIT_C,
 
-        "airports":
-            [],
+        "maximumMeasurementAgeHours":
+            MAX_MEASUREMENT_AGE_HOURS,
+
+        "airports": [],
     }
 
-    # --------------------------------------------------------
-    # CDC-Metadaten einmalig laden
-    # --------------------------------------------------------
-
+    # CDC laden
     try:
-        (
-            directory_html,
-            available_zip_mapping,
-        ) = load_cdc_directory()
-
-        print(
-            len(available_zip_mapping),
-            "aktuelle CDC-ZIP-Dateien gefunden."
-        )
-
-        stations = load_cdc_stations(
-            available_zip_mapping
+        zip_mapping = (
+            load_cdc_zip_mapping()
         )
 
         print(
-            len(stations),
-            "verwendbare CDC-Stationen geladen."
+            len(zip_mapping),
+            "CDC-ZIP-Dateien gefunden."
+        )
+
+        cdc_stations = (
+            load_cdc_stations(
+                zip_mapping
+            )
+        )
+
+        print(
+            len(cdc_stations),
+            "CDC-Stationen geladen."
         )
 
     except Exception as error:
         print(
-            "CDC-Grunddaten konnten "
-            f"nicht geladen werden: {error}"
+            "CDC-Grunddatenfehler:",
+            error,
         )
 
-        stations = []
+        cdc_stations = []
 
-    # --------------------------------------------------------
-    # Alle Airports verarbeiten
-    # --------------------------------------------------------
+    # MOSMIX nur einmal herunterladen.
+    try:
+        mosmix_document = (
+            load_mosmix_document()
+        )
 
+    except Exception as error:
+        print(
+            "MOSMIX-Grunddatenfehler:",
+            error,
+        )
+
+        mosmix_document = {
+            "timestamps": [],
+            "placemarks": [],
+        }
+
+    # Airports verarbeiten
     for airport in AIRPORTS:
         try:
-            airport_result = (
-                create_airport_result(
-                    airport,
-                    stations,
-                )
+            result = create_airport_result(
+                airport,
+                cdc_stations,
+                mosmix_document,
             )
 
         except Exception as error:
-            airport_result = (
-                create_empty_airport_result(
-                    airport
-                )
+            result = empty_airport_result(
+                airport
             )
 
-            airport_result[
-                "errors"
-            ].append(
-                f"Allgemeiner Fehler: {error}"
+            result["errors"].append(
+                f"Allgemein: {error}"
             )
 
-        output["airports"].append(
-            airport_result
-        )
-
-    # --------------------------------------------------------
-    # JSON schreiben
-    # --------------------------------------------------------
+        output["airports"].append(result)
 
     OUTPUT_FILE.write_text(
         json.dumps(
@@ -1479,17 +1325,8 @@ def main():
 
     print("")
     print("=" * 60)
-
     print(
         f"{OUTPUT_FILE} wurde erzeugt."
-    )
-
-    print(
-        "Enthaltene Airports:",
-        ", ".join(
-            item["code"]
-            for item in output["airports"]
-        ),
     )
 
     for item in output["airports"]:
