@@ -83,8 +83,7 @@ h1 {
 
 .grid {
   display: grid;
-  grid-template-columns:
-    repeat(auto-fit, minmax(245px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
   gap: 16px;
 }
 
@@ -242,81 +241,51 @@ footer {
 <header>
   <div>
     <h1>✈ Airport Weather Dashboard</h1>
-
     <div class="subtitle">
       AIRPORT OPERATIONS · GAS PATH CLEANING MONITOR
     </div>
   </div>
 
-  <div class="source">
-    DWD CDC + MOSMIX
+  <div class="source" id="source-badge">
+    DWD POI + MOSMIX / ICON-D2
   </div>
 </header>
 
 <section class="summary">
   <h2>Gas Path Cleaning – Gesamtübersicht</h2>
-
   <p id="summary">
     Warte auf Wetterdaten ...
   </p>
 </section>
 
-<main
-  class="grid"
-  id="airports"
-></main>
+<main class="grid" id="airports"></main>
 
 <footer>
-  Datenquelle: Deutscher Wetterdienst,
-  CDC-Stundenmessungen und MOSMIX L
+  Datenquelle: Deutscher Wetterdienst (POI Echtzeitmessungen &amp; MOSMIX_L / ICON-D2)
   <br>
-
-  Gas Path Cleaning:
-  🟢 GO = 24-h-Minimum mindestens +5,0 °C ·
-  🔴 NO GO = 24-h-Minimum unter +5,0 °C
+  Gas Path Cleaning (Nachtfenster 20:00–06:00 Uhr):
+  🟢 GO = Nacht-Minimum mindestens +5,0 °C ·
+  🔴 NO GO = Nacht-Minimum unter +5,0 °C
   <br>
-
   Letzter Datenabruf:
-  <span id="updated">
-    Noch keine Daten
-  </span>
+  <span id="updated">Noch keine Daten</span>
   <br>
-
-  Hinweis: Bei fehlenden oder veralteten Daten
-  wird keine grüne Freigabe angezeigt.
+  Hinweis: Bei fehlenden oder veralteten Daten wird keine grüne Freigabe angezeigt.
 </footer>
 
 <script>
-
 const airports = [
-  {
-    code: "FRA",
-    city: "Frankfurt"
-  },
-  {
-    code: "HAM",
-    city: "Hamburg"
-  },
-  {
-    code: "MUC",
-    city: "München"
-  },
-  {
-    code: "BER",
-    city: "Berlin Brandenburg"
-  },
-  {
-    code: "DUS",
-    city: "Düsseldorf"
-  },
-  {
-    code: "STR",
-    city: "Stuttgart"
-  }
+  { code: "FRA", icao: "EDDF", city: "Frankfurt", lat: 50.0379, lon: 8.5622 },
+  { code: "HAM", icao: "EDDH", city: "Hamburg", lat: 53.6304, lon: 9.9882 },
+  { code: "MUC", icao: "EDDM", city: "München", lat: 48.3538, lon: 11.7861 },
+  { code: "BER", icao: "EDDB", city: "Berlin Brandenburg", lat: 52.3667, lon: 13.5033 },
+  { code: "DUS", icao: "EDDL", city: "Düsseldorf", lat: 51.2895, lon: 6.7668 },
+  { code: "STR", icao: "EDDS", city: "Stuttgart", lat: 48.6899, lon: 9.2219 }
 ];
 
-const MAX_DATA_AGE_MINUTES = 90;
-
+const MAX_DATA_AGE_MINUTES = 240;
+const LIVE_FALLBACK_AFTER_MINUTES = 55;
+const GAS_PATH_LIMIT = 5.0;
 
 /* --------------------------------------------------------
    Hilfsfunktionen
@@ -326,449 +295,302 @@ function isNumber(value) {
   return Number.isFinite(value);
 }
 
-
 function formatTemperature(value) {
-
   if (!isNumber(value)) {
     return "--";
   }
-
   return value.toFixed(1) + " °C";
 }
 
-
 function formatDateTime(value) {
-
   if (!value) {
     return "Zeit unbekannt";
   }
-
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) {
     return "Zeit unbekannt";
   }
-
-  return date.toLocaleString(
-    "de-DE",
-    {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit"
-    }
-  ) + " Uhr";
+  return date.toLocaleString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }) + " Uhr";
 }
 
+function formatTimeOnly(value) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.toLocaleTimeString("de-DE", {
+    hour: "2-digit",
+    minute: "2-digit"
+  }) + " Uhr";
+}
 
 function dataAgeMinutes(updatedAt) {
-
   if (!updatedAt) {
     return Infinity;
   }
-
   const update = new Date(updatedAt);
-
   if (Number.isNaN(update.getTime())) {
     return Infinity;
   }
-
-  return (
-    Date.now() - update.getTime()
-  ) / 60000;
+  return (Date.now() - update.getTime()) / 60000;
 }
 
+function computeWeatherStatus(minTemp) {
+  if (!isNumber(minTemp)) return "NO DATA";
+  if (minTemp < -5) return "CRITICAL";
+  if (minTemp < 0) return "WARNING";
+  if (minTemp <= 3) return "WATCH";
+  return "SAFE";
+}
 
 /* --------------------------------------------------------
    Wetterampel
 -------------------------------------------------------- */
 
 function weatherPresentation(status) {
-
   switch (status) {
-
     case "SAFE":
-
-      return {
-        text: "🟢 SAFE",
-        css: "green"
-      };
-
-
+      return { text: "🟢 SAFE", css: "green" };
     case "WATCH":
-
-      return {
-        text: "🟡 WATCH",
-        css: "yellow"
-      };
-
-
+      return { text: "🟡 WATCH", css: "yellow" };
     case "WARNING":
-
-      return {
-        text: "🔴 WARNING",
-        css: "red"
-      };
-
-
+      return { text: "🔴 WARNING", css: "red" };
     case "CRITICAL":
-
-      return {
-        text: "🔵 CRITICAL",
-        css: "blue"
-      };
-
-
+      return { text: "🔵 CRITICAL", css: "blue" };
     default:
-
-      return {
-        text: "⚪ NO DATA",
-        css: "gray"
-      };
+      return { text: "⚪ NO DATA", css: "gray" };
   }
 }
 
+/* --------------------------------------------------------
+   Live DWD ICON-D2 Fallback im Browser (wenn GitHub Action verzögert)
+-------------------------------------------------------- */
+
+async function fetchLiveDwdIconFallback() {
+  const results = await Promise.all(
+    airports.map(async (ap) => {
+      const url = `https://api.open-meteo.com/v1/dwd-icon?latitude=${ap.lat}&longitude=${ap.lon}&current=temperature_2m&hourly=temperature_2m&forecast_days=2&timezone=Europe%2FBerlin`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Live-API Fehler für ${ap.code}`);
+      const json = await res.json();
+
+      const now = new Date();
+      const end = new Date(now.getTime() + 24 * 3600 * 1000);
+
+      let min24h = Infinity;
+      let min24hTime = null;
+      let nightMin = Infinity;
+      let nightMinTime = null;
+
+      json.hourly.time.forEach((tStr, idx) => {
+        const dt = new Date(tStr);
+        const temp = json.hourly.temperature_2m[idx];
+        if (dt >= now && dt <= end && isNumber(temp)) {
+          if (temp < min24h) {
+            min24h = temp;
+            min24hTime = dt.toISOString();
+          }
+          const hour = dt.getHours();
+          if ((hour >= 20 || hour <= 6) && temp < nightMin) {
+            nightMin = temp;
+            nightMinTime = dt.toISOString();
+          }
+        }
+      });
+
+      if (!isNumber(nightMin)) {
+        nightMin = min24h;
+        nightMinTime = min24hTime;
+      }
+
+      return {
+        code: ap.code,
+        icao: ap.icao,
+        city: ap.city,
+        currentTemp: Number(json.current.temperature_2m.toFixed(1)),
+        currentTempTime: new Date(json.current.time).toISOString(),
+        min24h: Number(min24h.toFixed(1)),
+        min24hTime,
+        nightMin: Number(nightMin.toFixed(1)),
+        nightMinTime,
+        weatherStatus: computeWeatherStatus(nightMin),
+        measurementStation: {
+          name: `${ap.city} (DWD ICON-D2 Live)`,
+          distanceKm: 0.0
+        },
+        errors: []
+      };
+    })
+  );
+
+  return {
+    updatedAt: new Date().toISOString(),
+    sourceMode: "LIVE",
+    airports: results
+  };
+}
 
 /* --------------------------------------------------------
    Dashboard erstellen
 -------------------------------------------------------- */
 
 function render(data) {
-
-  const container =
-    document.getElementById("airports");
-
+  const container = document.getElementById("airports");
   container.innerHTML = "";
 
-
-  const ageMinutes =
-    dataAgeMinutes(data.updatedAt);
-
-
-  const dataIsFresh =
-    ageMinutes <= MAX_DATA_AGE_MINUTES;
-
+  const ageMinutes = dataAgeMinutes(data.updatedAt);
+  const dataIsFresh = ageMinutes <= MAX_DATA_AGE_MINUTES;
 
   let goCount = 0;
-
   let noGoCount = 0;
-
   let noDataCount = 0;
 
-
   airports.forEach(airport => {
+    const item = (data.airports || []).find(
+      value => value.code === airport.code
+    );
 
-    const item =
-      (data.airports || []).find(
-        value => value.code === airport.code
-      );
+    const hasCurrentTemperature = item && isNumber(item.currentTemp);
+    const hasForecast = item && isNumber(item.min24h) && item.min24hTime;
 
+    // Maßgeblich für Gas Path Cleaning: Nacht-Minimum (20–06 Uhr), Fallback auf 24h-Minimum
+    const relevantMin = item && isNumber(item.nightMin)
+      ? item.nightMin
+      : item?.min24h;
 
-    const hasCurrentTemperature =
-      item
-      && isNumber(item.currentTemp);
+    const relevantMinTime = item && item.nightMinTime
+      ? item.nightMinTime
+      : item?.min24hTime;
 
-
-    const hasForecast =
-      item
-      && isNumber(item.min24h)
-      && item.min24hTime;
-
-
-    /*
-       Gas Path darf nur freigegeben werden,
-       wenn sowohl Messwert als auch Forecast
-       vorhanden sind und die Gesamtdaten
-       nicht veraltet sind.
-    */
-
-    const valid =
-      hasCurrentTemperature
-      && hasForecast
-      && dataIsFresh;
-
+    const valid = hasCurrentTemperature && hasForecast && isNumber(relevantMin) && dataIsFresh;
 
     /* ----------------------------------------------------
        GAS PATH CLEANING
     ---------------------------------------------------- */
 
-    let gasPathText =
-      "⚪ NO DATA · KEINE FREIGABE";
-
+    let gasPathText = "⚪ NO DATA · KEINE FREIGABE";
     let gasPathCss = "gray";
 
-
-    if (
-      valid
-      && item.min24h >= 5
-    ) {
-
-      gasPathText =
-        "🟢 GO · GAS PATH CLEANING";
-
+    if (valid && relevantMin >= GAS_PATH_LIMIT) {
+      gasPathText = "🟢 GO · GAS PATH CLEANING";
       gasPathCss = "green";
-
       goCount++;
-
-    }
-
-    else if (
-      valid
-      && item.min24h < 5
-    ) {
-
-      gasPathText =
-        "🔴 NO GO · GAS PATH CLEANING";
-
+    } else if (valid && relevantMin < GAS_PATH_LIMIT) {
+      gasPathText = "🔴 NO GO · GAS PATH CLEANING";
       gasPathCss = "red";
-
       noGoCount++;
-
-    }
-
-    else {
-
+    } else {
       noDataCount++;
-
     }
-
 
     /* ----------------------------------------------------
        Wetterstatus
     ---------------------------------------------------- */
 
-    const weather =
-      weatherPresentation(
-        valid
-          ? item.weatherStatus
-          : "NO DATA"
-      );
-
+    const weather = weatherPresentation(
+      valid ? (item.weatherStatus || computeWeatherStatus(relevantMin)) : "NO DATA"
+    );
 
     /* ----------------------------------------------------
-       CDC Messstation
+       Messstation & Nacht-Tiefstwert
     ---------------------------------------------------- */
 
-    const stationName =
-      item
-      && item.measurementStation
+    const stationName = item && item.measurementStation
       ? item.measurementStation.name
       : "--";
 
-
-    const stationDistance =
-      item
-      && item.measurementStation
-      && isNumber(
-        item.measurementStation.distanceKm
-      )
-
-      ? item.measurementStation
-          .distanceKm
-          .toFixed(1)
-          + " km"
-
+    const stationDistance = item && item.measurementStation && isNumber(item.measurementStation.distanceKm)
+      ? item.measurementStation.distanceKm.toFixed(1) + " km"
       : "--";
 
+    const nightMinDisplay = isNumber(relevantMin)
+      ? `${relevantMin.toFixed(1)} °C (${formatTimeOnly(relevantMinTime)})`
+      : "--";
 
     /* ----------------------------------------------------
        Fehler
     ---------------------------------------------------- */
 
-    const errorText =
-      item
-      && Array.isArray(item.errors)
-      && item.errors.length > 0
-
+    const errorText = item && Array.isArray(item.errors) && item.errors.length > 0
       ? item.errors.join(" · ")
-
       : "";
-
 
     /* ----------------------------------------------------
        Karte erzeugen
     ---------------------------------------------------- */
 
-    const card =
-      document.createElement("section");
-
-
+    const card = document.createElement("section");
     card.className = "card";
 
-
     card.innerHTML = `
-
       <div class="airport">
-
         <div>
-
-          <div class="code">
-            ${airport.code}
-          </div>
-
-          <div class="city">
-            ${airport.city}
-          </div>
-
-          <div class="icao">
-            ${item?.icao || "--"}
-          </div>
-
+          <div class="code">${airport.code}</div>
+          <div class="city">${airport.city}</div>
+          <div class="icao">${item?.icao || airport.icao}</div>
         </div>
-
-        <div>
-          ✈
-        </div>
-
+        <div>✈</div>
       </div>
-
 
       <div class="temps">
-
-
         <div class="temp-panel">
-
-          <div class="temp-label">
-            AKTUELL GEMESSEN
-          </div>
-
-          <div class="temp-value">
-
-            ${formatTemperature(
-              item?.currentTemp
-            )}
-
-          </div>
-
-          <div class="temp-time">
-
-            ${formatDateTime(
-              item?.currentTempTime
-            )}
-
-          </div>
-
+          <div class="temp-label">AKTUELL GEMESSEN</div>
+          <div class="temp-value">${formatTemperature(item?.currentTemp)}</div>
+          <div class="temp-time">${formatDateTime(item?.currentTempTime)}</div>
         </div>
 
-
         <div class="temp-panel">
-
-          <div class="temp-label">
-            MINIMUM NÄCHSTE 24H
-          </div>
-
-          <div class="temp-value">
-
-            ${formatTemperature(
-              item?.min24h
-            )}
-
-          </div>
-
-          <div class="temp-time">
-
-            erwartet:
-
-            ${formatDateTime(
-              item?.min24hTime
-            )}
-
-          </div>
-
+          <div class="temp-label">MINIMUM NÄCHSTE 24H</div>
+          <div class="temp-value">${formatTemperature(item?.min24h)}</div>
+          <div class="temp-time">erwartet: ${formatDateTime(item?.min24hTime)}</div>
         </div>
-
       </div>
 
-
-      <div
-        class="weather-status ${weather.css}"
-      >
-
-        <span class="status-title">
-          WETTERSTATUS
-        </span>
-
+      <div class="weather-status ${weather.css}">
+        <span class="status-title">WETTERSTATUS</span>
         ${weather.text}
-
       </div>
 
-
-      <div
-        class="gaspath-status ${gasPathCss}"
-      >
-
-        <span class="status-title">
-          GAS PATH CLEANING
-        </span>
-
+      <div class="gaspath-status ${gasPathCss}">
+        <span class="status-title">GAS PATH CLEANING (NACHT 20–06H)</span>
         ${gasPathText}
-
       </div>
-
 
       <div class="details">
-
-
         <div class="detail-row">
-
-          <span>
-            Messstation
-          </span>
-
-          <strong>
-            ${stationName}
-          </strong>
-
+          <span>Nacht-Min (20–06 Uhr)</span>
+          <strong>${nightMinDisplay}</strong>
         </div>
 
-
         <div class="detail-row">
-
-          <span>
-            Entfernung
-          </span>
-
-          <strong>
-            ${stationDistance}
-          </strong>
-
+          <span>Messstation</span>
+          <strong>${stationName}</strong>
         </div>
 
+        <div class="detail-row">
+          <span>Entfernung</span>
+          <strong>${stationDistance}</strong>
+        </div>
 
         ${
           errorText
-
-          ? `
-
-            <div
-              class="detail-row alert"
-            >
-
-              <span>
-                Fehler
-              </span>
-
-              <strong>
-                ${errorText}
-              </strong>
-
-            </div>
-
-          `
-
-          : ""
+            ? `
+              <div class="detail-row alert">
+                <span>Fehler</span>
+                <strong>${errorText}</strong>
+              </div>
+            `
+            : ""
         }
-
-
       </div>
-
     `;
 
-
     container.appendChild(card);
-
   });
-
 
   /* ------------------------------------------------------
      Gesamtstatus
@@ -776,118 +598,77 @@ function render(data) {
 
   let summaryText;
 
-
   if (!dataIsFresh) {
-
     summaryText =
-      "Wetterdaten sind älter als "
-      + MAX_DATA_AGE_MINUTES
-      + " Minuten. "
-      + "Keine Gas-Path-Freigabe.";
-
+      "Wetterdaten sind älter als " +
+      MAX_DATA_AGE_MINUTES +
+      " Minuten. Keine Gas-Path-Freigabe.";
+  } else {
+    summaryText =
+      `${goCount} Airport(s) GO · ` +
+      `${noGoCount} Airport(s) NO GO · ` +
+      `${noDataCount} ohne gültige Daten.`;
   }
 
-  else {
-
-    summaryText =
-      `${goCount} Airport(s) GO · `
-      + `${noGoCount} Airport(s) NO GO · `
-      + `${noDataCount} ohne gültige Daten.`;
-
-  }
-
-
-  document
-    .getElementById("summary")
-    .textContent = summaryText;
-
-
-  document
-    .getElementById("updated")
-    .textContent =
-
-      data.updatedAt
-
-      ? formatDateTime(
-          data.updatedAt
-        )
-
-      : "Noch keine Daten";
-
+  document.getElementById("summary").textContent = summaryText;
+  document.getElementById("updated").textContent = data.updatedAt
+    ? formatDateTime(data.updatedAt) + (data.sourceMode === "LIVE" ? " (Live-Sync)" : "")
+    : "Noch keine Daten";
 }
 
-
 /* --------------------------------------------------------
-   weather.json laden
+   weather.json laden + Live-Fallback bei Verzögerung
 -------------------------------------------------------- */
 
 async function loadWeather() {
-
   try {
-
-    const response =
-      await fetch(
-        "./weather.json?t="
-        + Date.now(),
-        {
-          cache: "no-store"
-        }
-      );
-
-
-    if (!response.ok) {
-
-      throw new Error(
-        "Wetterdatei nicht verfügbar"
-      );
-
-    }
-
-
-    const data =
-      await response.json();
-
-
-    render(data);
-
-  }
-
-  catch (error) {
-
-    console.error(
-      "Weather loading error:",
-      error
-    );
-
-
-    render({
-      updatedAt: null,
-      airports: []
+    const response = await fetch("./weather.json?t=" + Date.now(), {
+      cache: "no-store"
     });
 
+    if (!response.ok) {
+      throw new Error("Wetterdatei nicht verfügbar");
+    }
 
-    document
-      .getElementById("updated")
-      .textContent =
+    const data = await response.json();
+    const age = dataAgeMinutes(data.updatedAt);
+
+    // Prüfen, ob alle 6 Flughäfen gültige Werte haben und die Daten frisch sind
+    const allComplete = airports.every(ap => {
+      const found = (data.airports || []).find(a => a.code === ap.code);
+      return found && isNumber(found.currentTemp) && isNumber(found.min24h);
+    });
+
+    if (!allComplete || age > LIVE_FALLBACK_AFTER_MINUTES) {
+      try {
+        const liveData = await fetchLiveDwdIconFallback();
+        render(liveData);
+        return;
+      } catch (fallbackErr) {
+        console.warn("Live-Fallback fehlgeschlagen, nutze weather.json:", fallbackErr);
+      }
+    }
+
+    render(data);
+  } catch (error) {
+    console.error("Weather loading error:", error);
+    try {
+      const liveData = await fetchLiveDwdIconFallback();
+      render(liveData);
+    } catch {
+      render({ updatedAt: null, airports: [] });
+      document.getElementById("updated").textContent =
         "Wetterdaten derzeit nicht verfügbar";
-
+    }
   }
-
 }
 
-
 /* --------------------------------------------------------
-   Start + automatische Aktualisierung
+   Start + automatische Aktualisierung alle 5 Minuten
 -------------------------------------------------------- */
 
 loadWeather();
-
-
-setInterval(
-  loadWeather,
-  5 * 60 * 1000
-);
-
+setInterval(loadWeather, 5 * 60 * 1000);
 </script>
 
 </body>
