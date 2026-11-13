@@ -1,144 +1,133 @@
 {
-  "updatedAt": "2026-11-13T05:10:29Z",
+  "updatedAt": "2026-11-13T05:33:24Z",
   "source": "Deutscher Wetterdienst CDC und MOSMIX L",
   "gasPathCleaningLimitC": 5.0,
+  "maximumMeasurementAgeHours": 3,
   "airports": [
     {
       "code": "FRA",
       "icao": "EDDF",
       "city": "Frankfurt",
-      "currentTemp": 9.0,
-      "currentTempTime": "2026-11-11T23:00:00Z",
+      "currentTemp": null,
+      "currentTempTime": null,
+      "currentTempAgeHours": null,
       "min24h": null,
       "min24hTime": null,
       "forecastStart": null,
       "forecastEnd": null,
       "gasPathCleaning": "NO DATA",
       "weatherStatus": "NO DATA",
-      "measurementStation": {
-        "stationId": "01420",
-        "name": "Frankfurt/Main",
-        "federalState": "Hessen                                   Frei",
-        "distanceKm": 3.2
-      },
+      "measurementStation": null,
+      "mosmixStation": null,
       "hourly": [],
       "errors": [
-        "MOSMIX: HTTP Error 404: Not Found"
+        "CDC: Keine aktuelle CDC-Messung innerhalb von 3 Stunden. 01420 Frankfurt/Main Hessen Frei: Messwert 30.6 h alt | 01424 Frankfurt/Main-Westend Hessen Frei: Messwert 30.6 h alt | 07341 Offenbach-Wetterpark Hessen Frei: Messwert 30.6 h alt | 00917 Darmstadt Hessen Frei: Messwert 30.6 h alt",
+        "MOSMIX: Kein MOSMIX-Punkt mit Koordinaten."
       ]
     },
     {
       "code": "HAM",
       "icao": "EDDH",
       "city": "Hamburg",
-      "currentTemp": 1.9,
-      "currentTempTime": "2026-11-11T23:00:00Z",
+      "currentTemp": null,
+      "currentTempTime": null,
+      "currentTempAgeHours": null,
       "min24h": null,
       "min24hTime": null,
       "forecastStart": null,
       "forecastEnd": null,
       "gasPathCleaning": "NO DATA",
       "weatherStatus": "NO DATA",
-      "measurementStation": {
-        "stationId": "01975",
-        "name": "Hamburg-Fuhlsbüttel",
-        "federalState": "Hamburg                                  Frei",
-        "distanceKm": 0.3
-      },
+      "measurementStation": null,
+      "mosmixStation": null,
       "hourly": [],
       "errors": [
-        "MOSMIX: HTTP Error 404: Not Found"
+        "CDC: Keine aktuelle CDC-Messung innerhalb von 3 Stunden. 01975 Hamburg-Fuhlsbüttel Hamburg Frei: Messwert 30.6 h alt | 04039 Quickborn Schleswig-Holstein Frei: Messwert 30.6 h alt | 01981 Hamburg-Neuwiedenthal Hamburg Frei: Messwert 30.6 h alt | 04857 Mittelnkirchen-Hohenfelde Niedersachsen Frei: Messwert 30.6 h alt",
+        "MOSMIX: Kein MOSMIX-Punkt mit Koordinaten."
       ]
     },
     {
       "code": "MUC",
       "icao": "EDDM",
       "city": "München",
-      "currentTemp": 11.3,
-      "currentTempTime": "2026-11-11T23:00:00Z",
+      "currentTemp": null,
+      "currentTempTime": null,
+      "currentTempAgeHours": null,
       "min24h": null,
       "min24hTime": null,
       "forecastStart": null,
       "forecastEnd": null,
       "gasPathCleaning": "NO DATA",
       "weatherStatus": "NO DATA",
-      "measurementStation": {
-        "stationId": "01262",
-        "name": "München-Flughafen",
-        "federalState": "Bayern                                   Frei",
-        "distanceKm": 2.1
-      },
+      "measurementStation": null,
+      "mosmixStation": null,
       "hourly": [],
       "errors": [
-        "MOSMIX: HTTP Error 404: Not Found"
+        "CDC: Keine aktuelle CDC-Messung innerhalb von 3 Stunden. 01262 München-Flughafen Bayern Frei: Messwert 30.6 h alt | 05404 Weihenstephan-Dürnast Bayern Frei: Messwert 30.6 h alt | 03379 München-Stadt Bayern Frei: Messwert 30.6 h alt | 01103 Ebersberg-Halbing Bayern Frei: Messwert 30.6 h alt",
+        "MOSMIX: Kein MOSMIX-Punkt mit Koordinaten."
       ]
     },
     {
       "code": "BER",
       "icao": "EDDB",
       "city": "Berlin Brandenburg",
-      "currentTemp": 3.4,
-      "currentTempTime": "2026-11-11T23:00:00Z",
+      "currentTemp": null,
+      "currentTempTime": null,
+      "currentTempAgeHours": null,
       "min24h": null,
       "min24hTime": null,
       "forecastStart": null,
       "forecastEnd": null,
       "gasPathCleaning": "NO DATA",
       "weatherStatus": "NO DATA",
-      "measurementStation": {
-        "stationId": "00427",
-        "name": "Berlin",
-        "federalState": "Brandenburg                       Brandenburg                              Frei",
-        "distanceKm": 2.4
-      },
+      "measurementStation": null,
+      "mosmixStation": null,
       "hourly": [],
       "errors": [
-        "MOSMIX: HTTP Error 404: Not Found"
+        "CDC: Keine aktuelle CDC-Messung innerhalb von 3 Stunden. 00427 Berlin Brandenburg Brandenburg Frei: Messwert 30.6 h alt | 00433 Berlin-Tempelhof Berlin Frei: Messwert 30.6 h alt | 00403 Berlin-Dahlem (FU) Berlin Frei: Messwert 30.6 h alt | 00420 Berlin-Marzahn Berlin Frei: Messwert 30.6 h alt",
+        "MOSMIX: Kein MOSMIX-Punkt mit Koordinaten."
       ]
     },
     {
       "code": "DUS",
       "icao": "EDDL",
       "city": "Düsseldorf",
-      "currentTemp": 5.3,
-      "currentTempTime": "2026-11-11T23:00:00Z",
+      "currentTemp": null,
+      "currentTempTime": null,
+      "currentTempAgeHours": null,
       "min24h": null,
       "min24hTime": null,
       "forecastStart": null,
       "forecastEnd": null,
       "gasPathCleaning": "NO DATA",
       "weatherStatus": "NO DATA",
-      "measurementStation": {
-        "stationId": "01078",
-        "name": "Düsseldorf",
-        "federalState": "Nordrhein-Westfalen                      Frei",
-        "distanceKm": 0.7
-      },
+      "measurementStation": null,
+      "mosmixStation": null,
       "hourly": [],
       "errors": [
-        "MOSMIX: HTTP Error 404: Not Found"
+        "CDC: Keine aktuelle CDC-Messung innerhalb von 3 Stunden. 01078 Düsseldorf Nordrhein-Westfalen Frei: Messwert 30.6 h alt | 01303 Essen-Bredeney Nordrhein-Westfalen Frei: Messwert 30.6 h alt | 05064 Tönisvorst Nordrhein-Westfalen Frei: Messwert 30.6 h alt | 05717 Wuppertal-Buchenhofen Nordrhein-Westfalen Frei: Messwert 30.6 h alt",
+        "MOSMIX: Kein MOSMIX-Punkt mit Koordinaten."
       ]
     },
     {
       "code": "STR",
       "icao": "EDDS",
       "city": "Stuttgart",
-      "currentTemp": 11.1,
-      "currentTempTime": "2026-11-11T23:00:00Z",
+      "currentTemp": null,
+      "currentTempTime": null,
+      "currentTempAgeHours": null,
       "min24h": null,
       "min24hTime": null,
       "forecastStart": null,
       "forecastEnd": null,
       "gasPathCleaning": "NO DATA",
       "weatherStatus": "NO DATA",
-      "measurementStation": {
-        "stationId": "04931",
-        "name": "Stuttgart-Echterdingen",
-        "federalState": "Baden-Württemberg                        Frei",
-        "distanceKm": 0.2
-      },
+      "measurementStation": null,
+      "mosmixStation": null,
       "hourly": [],
       "errors": [
-        "MOSMIX: HTTP Error 404: Not Found"
+        "CDC: Keine aktuelle CDC-Messung innerhalb von 3 Stunden. 04931 Stuttgart-Echterdingen Baden-Württemberg Frei: Messwert 30.6 h alt | 04928 Stuttgart (Schnarrenberg) Baden-Württemberg Frei: Messwert 30.6 h alt | 03278 Metzingen Baden-Württemberg Frei: Messwert 30.6 h alt | 06275 Notzingen Baden-Württemberg Frei: Messwert 30.6 h alt",
+        "MOSMIX: Kein MOSMIX-Punkt mit Koordinaten."
       ]
     }
   ]
