@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-16T11:01:57Z",
+  "updatedAt": "2026-11-16T12:22:57Z",
   "source": "Deutscher Wetterdienst POI und MOSMIX_L",
   "gasPathCleaningLimitC": 5.0,
   "nightWindowLocal": "20:00-06:00 Europe/Berlin",
@@ -2079,15 +2079,15 @@
       "code": "STR",
       "icao": "EDDS",
       "city": "Stuttgart",
-      "currentTemp": 10.9,
-      "currentTempTime": "2026-11-16T11:00:00Z",
-      "currentTempAgeHours": 0.0,
+      "currentTemp": 11.2,
+      "currentTempTime": "2026-11-16T12:15:00Z",
+      "currentTempAgeHours": 0.2,
       "min24h": 8.6,
       "min24hTime": "2026-11-16T18:00:00Z",
       "nightMin": 8.6,
       "nightMinTime": "2026-11-16T19:00:00Z",
-      "forecastStart": "2026-11-16T12:00:00Z",
-      "forecastEnd": "2026-11-20T11:00:00Z",
+      "forecastStart": "2026-11-16T13:00:00Z",
+      "forecastEnd": "2026-11-20T12:00:00Z",
       "gasPathCleaning": "GO",
       "weatherStatus": "SAFE",
       "measurementStation": {
@@ -2102,10 +2102,6 @@
         "longitude": 9.2219
       },
       "hourly": [
-        {
-          "time": "2026-11-16T12:00:00Z",
-          "temperature": 10.3
-        },
         {
           "time": "2026-11-16T13:00:00Z",
           "temperature": 10.2
@@ -2485,6 +2481,10 @@
         {
           "time": "2026-11-20T11:00:00Z",
           "temperature": 9.6
+        },
+        {
+          "time": "2026-11-20T12:00:00Z",
+          "temperature": 10.0
         }
       ],
       "errors": []
