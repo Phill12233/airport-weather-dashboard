@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-18T07:57:53Z",
+  "updatedAt": "2026-11-18T09:16:10Z",
   "source": "Deutscher Wetterdienst POI und MOSMIX_L",
   "gasPathCleaningLimitC": 5.0,
   "nightWindowLocal": "20:00-06:00 Europe/Berlin",
@@ -10,14 +10,14 @@
       "icao": "EDDF",
       "city": "Frankfurt",
       "currentTemp": 11.2,
-      "currentTempTime": "2026-11-18T07:45:00Z",
-      "currentTempAgeHours": 0.2,
+      "currentTempTime": "2026-11-18T09:15:00Z",
+      "currentTempAgeHours": 0.0,
       "min24h": 9.2,
       "min24hTime": "2026-11-19T04:00:00Z",
       "nightMin": 9.2,
       "nightMinTime": "2026-11-19T04:00:00Z",
-      "forecastStart": "2026-11-18T08:00:00Z",
-      "forecastEnd": "2026-11-22T07:00:00Z",
+      "forecastStart": "2026-11-18T10:00:00Z",
+      "forecastEnd": "2026-11-22T09:00:00Z",
       "gasPathCleaning": "GO",
       "weatherStatus": "SAFE",
       "measurementStation": {
@@ -32,14 +32,6 @@
         "longitude": 8.5622
       },
       "hourly": [
-        {
-          "time": "2026-11-18T08:00:00Z",
-          "temperature": 11.4
-        },
-        {
-          "time": "2026-11-18T09:00:00Z",
-          "temperature": 11.6
-        },
         {
           "time": "2026-11-18T10:00:00Z",
           "temperature": 12.0
@@ -415,6 +407,14 @@
         {
           "time": "2026-11-22T07:00:00Z",
           "temperature": 1.4
+        },
+        {
+          "time": "2026-11-22T08:00:00Z",
+          "temperature": 1.9
+        },
+        {
+          "time": "2026-11-22T09:00:00Z",
+          "temperature": 2.6
         }
       ],
       "errors": []
@@ -423,15 +423,15 @@
       "code": "HAM",
       "icao": "EDDH",
       "city": "Hamburg",
-      "currentTemp": 8.7,
-      "currentTempTime": "2026-11-18T07:45:00Z",
-      "currentTempAgeHours": 0.2,
+      "currentTemp": 8.5,
+      "currentTempTime": "2026-11-18T09:15:00Z",
+      "currentTempAgeHours": 0.0,
       "min24h": 4.0,
       "min24hTime": "2026-11-19T06:00:00Z",
       "nightMin": 4.1,
       "nightMinTime": "2026-11-19T05:00:00Z",
-      "forecastStart": "2026-11-18T08:00:00Z",
-      "forecastEnd": "2026-11-22T07:00:00Z",
+      "forecastStart": "2026-11-18T10:00:00Z",
+      "forecastEnd": "2026-11-22T09:00:00Z",
       "gasPathCleaning": "NO GO",
       "weatherStatus": "SAFE",
       "measurementStation": {
@@ -446,14 +446,6 @@
         "longitude": 9.9882
       },
       "hourly": [
-        {
-          "time": "2026-11-18T08:00:00Z",
-          "temperature": 9.0
-        },
-        {
-          "time": "2026-11-18T09:00:00Z",
-          "temperature": 9.1
-        },
         {
           "time": "2026-11-18T10:00:00Z",
           "temperature": 9.1
@@ -829,6 +821,14 @@
         {
           "time": "2026-11-22T07:00:00Z",
           "temperature": 2.1
+        },
+        {
+          "time": "2026-11-22T08:00:00Z",
+          "temperature": 2.3
+        },
+        {
+          "time": "2026-11-22T09:00:00Z",
+          "temperature": 2.8
         }
       ],
       "errors": []
@@ -837,15 +837,15 @@
       "code": "MUC",
       "icao": "EDDM",
       "city": "München",
-      "currentTemp": 10.5,
-      "currentTempTime": "2026-11-18T07:45:00Z",
-      "currentTempAgeHours": 0.2,
+      "currentTemp": 11.9,
+      "currentTempTime": "2026-11-18T09:15:00Z",
+      "currentTempAgeHours": 0.0,
       "min24h": 5.9,
       "min24hTime": "2026-11-19T07:00:00Z",
       "nightMin": 6.2,
       "nightMinTime": "2026-11-19T05:00:00Z",
-      "forecastStart": "2026-11-18T08:00:00Z",
-      "forecastEnd": "2026-11-22T07:00:00Z",
+      "forecastStart": "2026-11-18T10:00:00Z",
+      "forecastEnd": "2026-11-22T09:00:00Z",
       "gasPathCleaning": "GO",
       "weatherStatus": "SAFE",
       "measurementStation": {
@@ -860,14 +860,6 @@
         "longitude": 11.7861
       },
       "hourly": [
-        {
-          "time": "2026-11-18T08:00:00Z",
-          "temperature": 11.2
-        },
-        {
-          "time": "2026-11-18T09:00:00Z",
-          "temperature": 11.2
-        },
         {
           "time": "2026-11-18T10:00:00Z",
           "temperature": 11.6
@@ -1243,6 +1235,14 @@
         {
           "time": "2026-11-22T07:00:00Z",
           "temperature": 1.0
+        },
+        {
+          "time": "2026-11-22T08:00:00Z",
+          "temperature": 1.3
+        },
+        {
+          "time": "2026-11-22T09:00:00Z",
+          "temperature": 1.9
         }
       ],
       "errors": []
@@ -1665,15 +1665,15 @@
       "code": "DUS",
       "icao": "EDDL",
       "city": "Düsseldorf",
-      "currentTemp": 9.2,
-      "currentTempTime": "2026-11-18T06:15:00Z",
-      "currentTempAgeHours": 0.1,
+      "currentTemp": 10.0,
+      "currentTempTime": "2026-11-18T09:15:00Z",
+      "currentTempAgeHours": 0.0,
       "min24h": 8.7,
       "min24hTime": "2026-11-19T05:00:00Z",
       "nightMin": 8.7,
       "nightMinTime": "2026-11-19T05:00:00Z",
-      "forecastStart": "2026-11-18T07:00:00Z",
-      "forecastEnd": "2026-11-22T06:00:00Z",
+      "forecastStart": "2026-11-18T10:00:00Z",
+      "forecastEnd": "2026-11-22T09:00:00Z",
       "gasPathCleaning": "GO",
       "weatherStatus": "SAFE",
       "measurementStation": {
@@ -1688,18 +1688,6 @@
         "longitude": 6.7668
       },
       "hourly": [
-        {
-          "time": "2026-11-18T07:00:00Z",
-          "temperature": 10.4
-        },
-        {
-          "time": "2026-11-18T08:00:00Z",
-          "temperature": 10.7
-        },
-        {
-          "time": "2026-11-18T09:00:00Z",
-          "temperature": 11.0
-        },
         {
           "time": "2026-11-18T10:00:00Z",
           "temperature": 11.2
@@ -2071,6 +2059,18 @@
         {
           "time": "2026-11-22T06:00:00Z",
           "temperature": 1.0
+        },
+        {
+          "time": "2026-11-22T07:00:00Z",
+          "temperature": 1.2
+        },
+        {
+          "time": "2026-11-22T08:00:00Z",
+          "temperature": 1.8
+        },
+        {
+          "time": "2026-11-22T09:00:00Z",
+          "temperature": 2.7
         }
       ],
       "errors": []
@@ -2079,15 +2079,15 @@
       "code": "STR",
       "icao": "EDDS",
       "city": "Stuttgart",
-      "currentTemp": 9.6,
-      "currentTempTime": "2026-11-18T07:45:00Z",
-      "currentTempAgeHours": 0.2,
+      "currentTemp": 11.1,
+      "currentTempTime": "2026-11-18T09:15:00Z",
+      "currentTempAgeHours": 0.0,
       "min24h": 7.4,
       "min24hTime": "2026-11-19T04:00:00Z",
       "nightMin": 7.4,
       "nightMinTime": "2026-11-19T04:00:00Z",
-      "forecastStart": "2026-11-18T08:00:00Z",
-      "forecastEnd": "2026-11-22T07:00:00Z",
+      "forecastStart": "2026-11-18T10:00:00Z",
+      "forecastEnd": "2026-11-22T09:00:00Z",
       "gasPathCleaning": "GO",
       "weatherStatus": "SAFE",
       "measurementStation": {
@@ -2102,14 +2102,6 @@
         "longitude": 9.2219
       },
       "hourly": [
-        {
-          "time": "2026-11-18T08:00:00Z",
-          "temperature": 10.1
-        },
-        {
-          "time": "2026-11-18T09:00:00Z",
-          "temperature": 10.5
-        },
         {
           "time": "2026-11-18T10:00:00Z",
           "temperature": 11.0
@@ -2485,6 +2477,14 @@
         {
           "time": "2026-11-22T07:00:00Z",
           "temperature": 0.5
+        },
+        {
+          "time": "2026-11-22T08:00:00Z",
+          "temperature": 1.4
+        },
+        {
+          "time": "2026-11-22T09:00:00Z",
+          "temperature": 2.3
         }
       ],
       "errors": []
