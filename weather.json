@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-19T00:36:37Z",
+  "updatedAt": "2026-11-19T01:59:21Z",
   "source": "Deutscher Wetterdienst POI und MOSMIX_L",
   "gasPathCleaningLimitC": 5.0,
   "nightWindowLocal": "20:00-06:00 Europe/Berlin",
@@ -2080,14 +2080,14 @@
       "icao": "EDDS",
       "city": "Stuttgart",
       "currentTemp": 7.6,
-      "currentTempTime": "2026-11-19T00:30:00Z",
+      "currentTempTime": "2026-11-19T02:00:00Z",
       "currentTempAgeHours": 0.1,
       "min24h": 8.0,
-      "min24hTime": "2026-11-19T02:00:00Z",
+      "min24hTime": "2026-11-19T03:00:00Z",
       "nightMin": 8.0,
-      "nightMinTime": "2026-11-19T02:00:00Z",
-      "forecastStart": "2026-11-19T01:00:00Z",
-      "forecastEnd": "2026-11-23T00:00:00Z",
+      "nightMinTime": "2026-11-19T03:00:00Z",
+      "forecastStart": "2026-11-19T03:00:00Z",
+      "forecastEnd": "2026-11-23T02:00:00Z",
       "gasPathCleaning": "GO",
       "weatherStatus": "SAFE",
       "measurementStation": {
@@ -2102,14 +2102,6 @@
         "longitude": 9.2219
       },
       "hourly": [
-        {
-          "time": "2026-11-19T01:00:00Z",
-          "temperature": 8.3
-        },
-        {
-          "time": "2026-11-19T02:00:00Z",
-          "temperature": 8.0
-        },
         {
           "time": "2026-11-19T03:00:00Z",
           "temperature": 8.0
@@ -2485,6 +2477,14 @@
         {
           "time": "2026-11-23T00:00:00Z",
           "temperature": 1.1
+        },
+        {
+          "time": "2026-11-23T01:00:00Z",
+          "temperature": 0.9
+        },
+        {
+          "time": "2026-11-23T02:00:00Z",
+          "temperature": 0.9
         }
       ],
       "errors": []
