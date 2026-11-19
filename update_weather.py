@@ -24,15 +24,6 @@ AIRPORTS = [
         "longitude": 8.5622,
     },
     {
-        "code": "HAM",
-        "icao": "EDDH",
-        "city": "Hamburg",
-        "wmo_id": "10147",
-        "station_name": "Hamburg-Fuhlsbüttel",
-        "latitude": 53.6304,
-        "longitude": 9.9882,
-    },
-    {
         "code": "MUC",
         "icao": "EDDM",
         "city": "München",
@@ -51,6 +42,15 @@ AIRPORTS = [
         "longitude": 13.5033,
     },
     {
+        "code": "HAM",
+        "icao": "EDDH",
+        "city": "Hamburg",
+        "wmo_id": "10147",
+        "station_name": "Hamburg-Fuhlsbüttel",
+        "latitude": 53.6304,
+        "longitude": 9.9882,
+    },
+    {
         "code": "DUS",
         "icao": "EDDL",
         "city": "Düsseldorf",
@@ -60,15 +60,6 @@ AIRPORTS = [
         "longitude": 6.7668,
     },
     {
-        "code": "CGN",
-        "icao": "EDDK",
-        "city": "Köln/Bonn",
-        "wmo_id": "10513",
-        "station_name": "Köln-Bonn Flughafen",
-        "latitude": 50.8659,
-        "longitude": 7.1427,
-    },
-    {
         "code": "STR",
         "icao": "EDDS",
         "city": "Stuttgart",
@@ -76,6 +67,15 @@ AIRPORTS = [
         "station_name": "Stuttgart-Echterdingen",
         "latitude": 48.6899,
         "longitude": 9.2219,
+    },
+    {
+        "code": "CGN",
+        "icao": "EDDK",
+        "city": "Köln/Bonn",
+        "wmo_id": "10513",
+        "station_name": "Köln-Bonn Flughafen",
+        "latitude": 50.8659,
+        "longitude": 7.1427,
     },
 ]
 
