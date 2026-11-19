@@ -1,4 +1,3 @@
-import csv
 import io
 import json
 import math
@@ -61,6 +60,15 @@ AIRPORTS = [
         "longitude": 6.7668,
     },
     {
+        "code": "CGN",
+        "icao": "EDDK",
+        "city": "Köln/Bonn",
+        "wmo_id": "10513",
+        "station_name": "Köln-Bonn Flughafen",
+        "latitude": 50.8659,
+        "longitude": 7.1427,
+    },
+    {
         "code": "STR",
         "icao": "EDDS",
         "city": "Stuttgart",
@@ -78,9 +86,9 @@ GAS_PATH_LIMIT_C = 5.0
 NIGHT_START_HOUR = 20
 NIGHT_END_HOUR = 6
 MAX_MEASUREMENT_AGE_HOURS = 4
-FORECAST_CHART_HOURS = 96  # 4 Tage für den Temperatur-Graph
+FORECAST_CHART_HOURS = 96
 
-USER_AGENT = "airport-weather-dashboard/3.4 (GitHub Actions; DWD Open Data)"
+USER_AGENT = "station-weather-hub/4.1 (GitHub Actions; DWD Open Data)"
 
 DWD_POI_URL_TEMPLATE = (
     "https://opendata.dwd.de/weather/weather_reports/poi/{wmo_id}-BEOB.csv"
@@ -96,24 +104,23 @@ DWD_MOSMIX_SINGLE_URL_TEMPLATE = (
 # HTTP & HILFSFUNKTIONEN
 # ============================================================
 
-def download_bytes(url, timeout=45):
-    request = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": USER_AGENT,
-            "Accept": "*/*",
-        },
-    )
+def download_bytes(url, headers=None, timeout=45):
+    req_headers = {"User-Agent": USER_AGENT, "Accept": "*/*"}
+    if headers:
+        req_headers.update(headers)
+    request = urllib.request.Request(url, headers=req_headers)
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read()
 
 
-def download_text(url, encoding="utf-8", timeout=45):
-    return download_bytes(url, timeout=timeout).decode(encoding, errors="replace")
+def download_text(url, encoding="utf-8", headers=None, timeout=45):
+    return download_bytes(url, headers=headers, timeout=timeout).decode(
+        encoding, errors="replace"
+    )
 
 
 def parse_iso_utc(iso_str):
-    cleaned = iso_str.strip().replace("Z", "+00:00")
+    cleaned = str(iso_str).strip().replace("Z", "+00:00")
     dt = datetime.fromisoformat(cleaned)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
@@ -133,20 +140,8 @@ def float_or_none(value):
         return None
 
 
-def round_or_none(value, digits=1):
-    return None if value is None else round(float(value), digits)
-
-
 def kelvin_to_celsius(value):
     return None if value is None else round(value - 273.15, 1)
-
-
-def metres_per_second_to_kmh(value):
-    return None if value is None else round(value * 3.6, 1)
-
-
-def pascal_to_hectopascal(value):
-    return None if value is None else round(value / 100.0, 1)
 
 
 def utc_iso(value):
@@ -194,7 +189,7 @@ def series_value(series, index):
 
 
 # ============================================================
-# AKTUELLE MESSWERTE (DWD POI ECHTZEIT-BEOBACHTUNGEN)
+# WETTERDATEN (DWD POI + MOSMIX + ICON FALLBACK)
 # ============================================================
 
 def get_current_temperature_dwd_poi(airport):
@@ -206,41 +201,28 @@ def get_current_temperature_dwd_poi(airport):
         raise RuntimeError("POI-CSV enthält keine Datenzeilen.")
 
     headers = [h.strip() for h in lines[0].split(";")]
-    ttt_index = None
-    for idx, h in enumerate(headers):
-        if h.upper() == "TTT":
-            ttt_index = idx
-            break
-
+    ttt_index = next(
+        (idx for idx, h in enumerate(headers) if h.upper() == "TTT"), None
+    )
     if ttt_index is None:
         raise RuntimeError("Spalte TTT fehlt in POI-CSV.")
 
     latest = None
-
     for line in lines[3:]:
         cols = [c.strip() for c in line.split(";")]
         if len(cols) <= ttt_index:
             continue
-
-        d_str = cols[0]
-        t_str = cols[1]
         temp_val = float_or_none(cols[ttt_index])
-
-        if not d_str or not t_str or temp_val is None:
+        if not cols[0] or not cols[1] or temp_val is None:
             continue
-
         try:
             timestamp = datetime.strptime(
-                f"{d_str} {t_str}", "%d.%m.%y %H:%M"
+                f"{cols[0]} {cols[1]}", "%d.%m.%y %H:%M"
             ).replace(tzinfo=timezone.utc)
         except ValueError:
             continue
-
         if latest is None or timestamp > latest["timestamp"]:
-            latest = {
-                "timestamp": timestamp,
-                "temperature": round(temp_val, 1),
-            }
+            latest = {"timestamp": timestamp, "temperature": round(temp_val, 1)}
 
     if latest is None:
         raise RuntimeError("Kein gültiger TTT-Messwert in POI-Datei.")
@@ -248,11 +230,8 @@ def get_current_temperature_dwd_poi(airport):
     age_hours = (
         datetime.now(timezone.utc) - latest["timestamp"]
     ).total_seconds() / 3600
-
     if age_hours > MAX_MEASUREMENT_AGE_HOURS:
-        raise RuntimeError(
-            f"POI-Messwert ist {round(age_hours, 1)} h alt."
-        )
+        raise RuntimeError(f"POI-Messwert ist {round(age_hours, 1)} h alt.")
 
     return {
         "temperature": latest["temperature"],
@@ -266,10 +245,6 @@ def get_current_temperature_dwd_poi(airport):
     }
 
 
-# ============================================================
-# MOSMIX-L EINZELSTATION LADEN & AUSLESEN
-# ============================================================
-
 def parse_forecast_series(placemark):
     forecast_values = {}
     for forecast in find_elements(placemark, "Forecast"):
@@ -277,11 +252,10 @@ def parse_forecast_series(placemark):
         if not parameter_name:
             continue
         value_elements = find_elements(forecast, "value")
-        if not value_elements:
-            continue
-        forecast_values[parameter_name] = parse_number_list(
-            element_text(value_elements[0])
-        )
+        if value_elements:
+            forecast_values[parameter_name] = parse_number_list(
+                element_text(value_elements[0])
+            )
     return forecast_values
 
 
@@ -290,31 +264,25 @@ def summarize_forecast_rows(rows, airport, station_label):
     end_24h = now + timedelta(hours=24)
     end_4d = now + timedelta(hours=FORECAST_CHART_HOURS)
 
-    next_24_hours = [
-        row for row in rows if now <= row["timestamp"] <= end_24h
-    ]
-
-    next_4_days = [
-        row for row in rows if now <= row["timestamp"] <= end_4d
-    ]
+    next_24_hours = [r for r in rows if now <= r["timestamp"] <= end_24h]
+    next_4_days = [r for r in rows if now <= r["timestamp"] <= end_4d]
 
     if not next_24_hours:
         raise RuntimeError("Keine Forecastwerte für die nächsten 24 Stunden.")
 
-    minimum_row = min(next_24_hours, key=lambda row: row["temperature"])
-
+    minimum_row = min(next_24_hours, key=lambda r: r["temperature"])
     night_rows = [
-        row for row in next_24_hours if is_night_hour_local(row["timestamp"])
+        r for r in next_24_hours if is_night_hour_local(r["timestamp"])
     ]
     night_min_row = (
-        min(night_rows, key=lambda row: row["temperature"])
+        min(night_rows, key=lambda r: r["temperature"])
         if night_rows
         else minimum_row
     )
 
     hourly_4d = [
-        {"time": row["time"], "temperature": row["temperature"]}
-        for row in next_4_days
+        {"time": r["time"], "temperature": r["temperature"]}
+        for r in next_4_days
     ]
 
     return {
@@ -323,7 +291,9 @@ def summarize_forecast_rows(rows, airport, station_label):
         "nightMin": night_min_row["temperature"],
         "nightMinTime": night_min_row["time"],
         "forecastStart": next_24_hours[0]["time"],
-        "forecastEnd": next_4_days[-1]["time"] if next_4_days else next_24_hours[-1]["time"],
+        "forecastEnd": (
+            next_4_days[-1]["time"] if next_4_days else next_24_hours[-1]["time"]
+        ),
         "hourly": hourly_4d,
         "mosmixStation": {
             "id": station_label,
@@ -347,15 +317,11 @@ def create_mosmix_forecast_single(airport):
         kml_data = archive.read(kml_files[0])
 
     root = ET.fromstring(kml_data)
-
     timestamps = []
     for element in find_elements(root, "TimeStep"):
         text = element_text(element)
-        if not text:
-            timestamps.append(None)
-            continue
         try:
-            timestamps.append(parse_iso_utc(text))
+            timestamps.append(parse_iso_utc(text) if text else None)
         except ValueError:
             timestamps.append(None)
 
@@ -363,8 +329,7 @@ def create_mosmix_forecast_single(airport):
     if not placemarks:
         raise RuntimeError("MOSMIX-Einzelstation enthält keinen Placemark.")
 
-    placemark = placemarks[0]
-    series = parse_forecast_series(placemark)
+    series = parse_forecast_series(placemarks[0])
     temperatures = series.get("TTT", [])
     if not temperatures:
         raise RuntimeError("Temperaturparameter TTT fehlt in MOSMIX.")
@@ -373,27 +338,20 @@ def create_mosmix_forecast_single(airport):
     for index, timestamp in enumerate(timestamps):
         if timestamp is None:
             continue
-
         temperature = kelvin_to_celsius(series_value(temperatures, index))
-        if temperature is None:
-            continue
-
-        rows.append(
-            {
-                "timestamp": timestamp,
-                "time": utc_iso(timestamp),
-                "temperature": temperature,
-            }
-        )
+        if temperature is not None:
+            rows.append(
+                {
+                    "timestamp": timestamp,
+                    "time": utc_iso(timestamp),
+                    "temperature": temperature,
+                }
+            )
 
     return summarize_forecast_rows(
         rows, airport, f"{airport['wmo_id']} ({airport['icao']})"
     )
 
-
-# ============================================================
-# FALLBACK: OPEN-METEO DWD ICON
-# ============================================================
 
 def fetch_open_meteo_fallback(airport):
     url = (
@@ -408,11 +366,10 @@ def fetch_open_meteo_fallback(airport):
     cur_temp = round(float(data["current"]["temperature_2m"]), 1)
     cur_time = parse_iso_utc(data["current"]["time"])
 
-    hourly_data = data["hourly"]
     rows = []
-    for i, t_str in enumerate(hourly_data["time"]):
+    for i, t_str in enumerate(data["hourly"]["time"]):
         ts = parse_iso_utc(t_str)
-        temp = hourly_data["temperature_2m"][i]
+        temp = data["hourly"]["temperature_2m"][i]
         if temp is not None:
             rows.append(
                 {
@@ -441,10 +398,6 @@ def fetch_open_meteo_fallback(airport):
     }
 
 
-# ============================================================
-# STATUSLOGIK
-# ============================================================
-
 def get_weather_status(minimum):
     if minimum is None:
         return "NO DATA"
@@ -460,14 +413,8 @@ def get_weather_status(minimum):
 def get_gas_path_status(night_minimum):
     if night_minimum is None:
         return "NO DATA"
-    if night_minimum >= GAS_PATH_LIMIT_C:
-        return "GO"
-    return "NO GO"
+    return "GO" if night_minimum >= GAS_PATH_LIMIT_C else "NO GO"
 
-
-# ============================================================
-# AIRPORT-ERGEBNIS
-# ============================================================
 
 def empty_airport_result(airport):
     return {
@@ -499,7 +446,6 @@ def create_airport_result(airport):
     result = empty_airport_result(airport)
     fallback_data = None
 
-    # 1. Aktuelle Messung (DWD POI)
     try:
         measurement = get_current_temperature_dwd_poi(airport)
     except Exception as error:
@@ -512,7 +458,6 @@ def create_airport_result(airport):
     result["currentTempAgeHours"] = measurement["ageHours"]
     result["measurementStation"] = measurement["station"]
 
-    # 2. 4-Tage- & Nacht-Prognose (DWD MOSMIX_L Einzelstation)
     try:
         forecast = create_mosmix_forecast_single(airport)
     except Exception as error:
@@ -532,12 +477,6 @@ def create_airport_result(airport):
 
     result["weatherStatus"] = get_weather_status(result["nightMin"])
     result["gasPathCleaning"] = get_gas_path_status(result["nightMin"])
-
-    print(
-        f"Aktuell: {result['currentTemp']} °C | Min 24h: {result['min24h']} °C | "
-        f"Nacht-Min: {result['nightMin']} °C | Punkte: {len(result['hourly'])}"
-    )
-
     return result
 
 
@@ -578,7 +517,6 @@ def main():
         except Exception as error:
             print(f"Fehler bei {airport['code']}: {error}")
             if airport["code"] in previous_airports:
-                print(f"Behalte vorherige gültige Daten für {airport['code']}.")
                 result = previous_airports[airport["code"]]
             else:
                 result = empty_airport_result(airport)
@@ -590,9 +528,7 @@ def main():
         json.dumps(output, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-
-    print("\n" + "=" * 60)
-    print(f"{OUTPUT_FILE} wurde erfolgreich erzeugt.")
+    print(f"\n{OUTPUT_FILE} wurde erfolgreich erzeugt.")
 
 
 if __name__ == "__main__":
