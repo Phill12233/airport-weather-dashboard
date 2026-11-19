@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-19T11:04:19Z",
+  "updatedAt": "2026-11-19T11:37:11Z",
   "source": "Deutscher Wetterdienst POI und MOSMIX_L",
   "gasPathCleaningLimitC": 5.0,
   "nightWindowLocal": "20:00-06:00 Europe/Berlin",
@@ -9,8 +9,8 @@
       "code": "FRA",
       "icao": "EDDF",
       "city": "Frankfurt",
-      "currentTemp": 12.2,
-      "currentTempTime": "2026-11-19T11:00:00Z",
+      "currentTemp": 12.4,
+      "currentTempTime": "2026-11-19T11:30:00Z",
       "currentTempAgeHours": 0.1,
       "min24h": 9.8,
       "min24hTime": "2026-11-20T11:00:00Z",
@@ -423,8 +423,8 @@
       "code": "MUC",
       "icao": "EDDM",
       "city": "München",
-      "currentTemp": 7.6,
-      "currentTempTime": "2026-11-19T11:00:00Z",
+      "currentTemp": 8.2,
+      "currentTempTime": "2026-11-19T11:30:00Z",
       "currentTempAgeHours": 0.1,
       "min24h": 7.7,
       "min24hTime": "2026-11-19T17:00:00Z",
@@ -837,8 +837,8 @@
       "code": "BER",
       "icao": "EDDB",
       "city": "Berlin Brandenburg",
-      "currentTemp": 8.7,
-      "currentTempTime": "2026-11-19T11:00:00Z",
+      "currentTemp": 8.9,
+      "currentTempTime": "2026-11-19T11:30:00Z",
       "currentTempAgeHours": 0.1,
       "min24h": 4.1,
       "min24hTime": "2026-11-20T09:00:00Z",
@@ -1252,7 +1252,7 @@
       "icao": "EDDH",
       "city": "Hamburg",
       "currentTemp": 4.8,
-      "currentTempTime": "2026-11-19T11:00:00Z",
+      "currentTempTime": "2026-11-19T11:30:00Z",
       "currentTempAgeHours": 0.1,
       "min24h": -0.7,
       "min24hTime": "2026-11-20T06:00:00Z",
@@ -1666,7 +1666,7 @@
       "icao": "EDDL",
       "city": "Düsseldorf",
       "currentTemp": 10.7,
-      "currentTempTime": "2026-11-19T11:00:00Z",
+      "currentTempTime": "2026-11-19T11:30:00Z",
       "currentTempAgeHours": 0.1,
       "min24h": 6.4,
       "min24hTime": "2026-11-20T08:00:00Z",
@@ -2079,15 +2079,15 @@
       "code": "STR",
       "icao": "EDDS",
       "city": "Stuttgart",
-      "currentTemp": 9.8,
-      "currentTempTime": "2026-11-19T10:45:00Z",
+      "currentTemp": 10.4,
+      "currentTempTime": "2026-11-19T11:30:00Z",
       "currentTempAgeHours": 0.1,
       "min24h": 8.3,
       "min24hTime": "2026-11-20T06:00:00Z",
       "nightMin": 8.4,
       "nightMinTime": "2026-11-20T03:00:00Z",
-      "forecastStart": "2026-11-19T11:00:00Z",
-      "forecastEnd": "2026-11-23T10:00:00Z",
+      "forecastStart": "2026-11-19T12:00:00Z",
+      "forecastEnd": "2026-11-23T11:00:00Z",
       "gasPathCleaning": "GO",
       "weatherStatus": "SAFE",
       "measurementStation": {
@@ -2102,10 +2102,6 @@
         "longitude": 9.2219
       },
       "hourly": [
-        {
-          "time": "2026-11-19T11:00:00Z",
-          "temperature": 10.4
-        },
         {
           "time": "2026-11-19T12:00:00Z",
           "temperature": 10.6
@@ -2485,6 +2481,10 @@
         {
           "time": "2026-11-23T10:00:00Z",
           "temperature": 1.5
+        },
+        {
+          "time": "2026-11-23T11:00:00Z",
+          "temperature": 1.7
         }
       ],
       "errors": []
@@ -2493,8 +2493,8 @@
       "code": "CGN",
       "icao": "EDDK",
       "city": "Köln/Bonn",
-      "currentTemp": 11.3,
-      "currentTempTime": "2026-11-19T11:00:00Z",
+      "currentTemp": 11.5,
+      "currentTempTime": "2026-11-19T11:30:00Z",
       "currentTempAgeHours": 0.1,
       "min24h": 7.2,
       "min24hTime": "2026-11-20T08:00:00Z",
