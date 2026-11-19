@@ -39,7 +39,7 @@ header {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  margin-bottom: 18px;
+  margin-bottom: 24px;
 }
 
 h1 {
@@ -59,45 +59,6 @@ h1 {
   padding: 8px 13px;
   border-radius: 20px;
   font-size: 12px;
-}
-
-/* Tab Navigation */
-.tabs {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-.tab-btn {
-  background: var(--panel);
-  color: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 11px 18px;
-  font-size: 13px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.tab-btn:hover {
-  border-color: #60a5fa;
-  color: var(--text);
-}
-
-.tab-btn.active {
-  background: #1e3a8a;
-  color: #ffffff;
-  border-color: #3b82f6;
-}
-
-.tab-content {
-  display: none;
-}
-
-.tab-content.active {
-  display: block;
 }
 
 .summary {
@@ -295,93 +256,6 @@ h1 {
   text-align: right;
 }
 
-/* Fleet & Water Protection Styles */
-.fleet-station-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 15px;
-  padding: 20px;
-  margin-bottom: 20px;
-}
-
-.fleet-station-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.fleet-table-wrap {
-  overflow-x: auto;
-}
-
-table.fleet-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-table.fleet-table th,
-table.fleet-table td {
-  padding: 10px 10px;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-
-table.fleet-table th {
-  color: var(--muted);
-  font-size: 10px;
-  text-transform: uppercase;
-  background: var(--panel-light);
-}
-
-.reg-badge {
-  font-family: monospace;
-  font-size: 13px;
-  font-weight: bold;
-  background: var(--panel-light);
-  border: 1px solid var(--border);
-  padding: 3px 7px;
-  border-radius: 6px;
-}
-
-.action-pill {
-  display: inline-block;
-  padding: 5px 9px;
-  border-radius: 6px;
-  font-weight: bold;
-  font-size: 11px;
-}
-
-.filter-bar {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-}
-
-.filter-btn {
-  background: var(--panel-light);
-  color: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 11px;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.filter-btn.active {
-  background: #2563eb;
-  color: #fff;
-  border-color: #60a5fa;
-}
-
 footer {
   color: var(--muted);
   font-size: 11px;
@@ -411,7 +285,7 @@ footer {
   <div>
     <h1>✈ Station Weather Hub</h1>
     <div class="subtitle">
-      COLD WEATHER MAINTENANCE · GAS PATH CLEANING · WATER PROTECTION MONITOR
+      COLD WEATHER MAINTENANCE · GAS PATH CLEANING MONITOR
     </div>
   </div>
 
@@ -420,48 +294,15 @@ footer {
   </div>
 </header>
 
-<nav class="tabs">
-  <button class="tab-btn active" onclick="switchTab('weather', this)">
-    🌤 Wetter &amp; Stationen
-  </button>
-  <button class="tab-btn" onclick="switchTab('fleet', this)">
-    💧 Water Protection · LH A320 (FRA / MUC)
-  </button>
-</nav>
+<section class="summary">
+  <h2>Operations – Gesamtübersicht</h2>
+  <p id="summary">Warte auf Wetterdaten ...</p>
+</section>
 
-<!-- ========================================================
-     TAB 1: WETTER & STATIONEN
-======================================================== -->
-<div id="tab-weather" class="tab-content active">
-  <section class="summary">
-    <h2>Operations – Gesamtübersicht</h2>
-    <p id="summary">Warte auf Wetterdaten ...</p>
-  </section>
-
-  <main class="grid" id="airports"></main>
-</div>
-
-<!-- ========================================================
-     TAB 2: LH A320 WATER PROTECTION (FRA / MUC)
-======================================================== -->
-<div id="tab-fleet" class="tab-content">
-  <section class="summary">
-    <h2>💧 Potable Water Protection · LH A320 Familie (FRA &amp; MUC)</h2>
-    <p id="fleet-summary">Lade Umlauf- &amp; Standzeitdaten ...</p>
-  </section>
-
-  <div class="filter-bar">
-    <button class="filter-btn active" onclick="setFleetFilter('ALL', this)">Alle Flieger</button>
-    <button class="filter-btn" onclick="setFleetFilter('CRITICAL_ONLY', this)">Nur Drain / Heizen nötig</button>
-    <button class="filter-btn" onclick="setFleetFilter('FRA', this)">Nur FRA</button>
-    <button class="filter-btn" onclick="setFleetFilter('MUC', this)">Nur MUC</button>
-  </div>
-
-  <div id="fleet-container"></div>
-</div>
+<main class="grid" id="airports"></main>
 
 <footer>
-  Datenquelle Wetter: Deutscher Wetterdienst (POI Echtzeitmessungen &amp; MOSMIX_L / ICON-D2) · Flugdaten: Öffentliche ADS-B/Airport-Feeds (LH A320-Familie)
+  Datenquelle: Deutscher Wetterdienst (POI Echtzeitmessungen &amp; MOSMIX_L / ICON-D2)
   <br>
   Wetterstatus (Nachtfenster 20:00–06:00):
   🟢 SAFE &gt; +5,0 °C ·
@@ -488,23 +329,6 @@ const airports = [
 const MAX_DATA_AGE_MINUTES = 240;
 const LIVE_FALLBACK_AFTER_MINUTES = 55;
 const GAS_PATH_LIMIT = 5.0;
-
-let latestFleetData = null;
-let currentFleetFilter = "ALL";
-
-function switchTab(tabName, btn) {
-  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-  document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-  btn.classList.add("active");
-  document.getElementById("tab-" + tabName).classList.add("active");
-}
-
-function setFleetFilter(filterName, btn) {
-  currentFleetFilter = filterName;
-  document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
-  btn.classList.add("active");
-  if (latestFleetData) renderFleet(latestFleetData);
-}
 
 /* --------------------------------------------------------
    Hilfsfunktionen
@@ -639,7 +463,6 @@ function buildForecastChartHtml(hourly, airportCode) {
       if (i > 0) {
         dayMarkers += `<line x1="${x.toFixed(1)}" y1="${padT}" x2="${x.toFixed(1)}" y2="${padT + plotH}" stroke="#34445a" stroke-width="1" />`;
       }
-      // Aktuellen Tag ab 10:00 Uhr ausblenden, damit sich die Labels nicht überlappen
       const hideCurrentDayLabel = (i === 0 && d.getHours() >= 10);
       if (!hideCurrentDayLabel && x < W - 42) {
         dayMarkers += `<text x="${(x + 2).toFixed(1)}" y="${H - 4}" fill="#a9b7c8" font-size="7.5">${weekday} ${dayKey}</text>`;
@@ -761,7 +584,7 @@ async function fetchLiveDwdIconFallback() {
 }
 
 /* --------------------------------------------------------
-   Tab 1 rendern: Wetter
+   Dashboard rendern
 -------------------------------------------------------- */
 
 function render(data) {
@@ -788,7 +611,7 @@ function render(data) {
     const valid = hasCurrentTemperature && hasForecast && isNumber(relevantMin) && dataIsFresh;
 
     /* ----------------------------------------------------
-       OBERE ANZEIGE: Wetterstatus (SAFE / WATCH / ATT COLD WEATHER MAINT PROCEDURE)
+       OBERE ANZEIGE: Wetterstatus
     ---------------------------------------------------- */
     const weather = getWeatherPresentation(relevantMin, valid);
     if (weather.key === "SAFE") safeCount++;
@@ -900,128 +723,10 @@ function render(data) {
 }
 
 /* --------------------------------------------------------
-   Tab 2 rendern: Water Protection FRA / MUC
+   Wetterdaten laden
 -------------------------------------------------------- */
 
-function renderFleet(fleetData) {
-  latestFleetData = fleetData;
-  const container = document.getElementById("fleet-container");
-  const summaryEl = document.getElementById("fleet-summary");
-  container.innerHTML = "";
-
-  if (!fleetData || !fleetData.configured) {
-    summaryEl.textContent =
-      "Hinweis: RAPIDAPI_KEY ist noch nicht in den GitHub Repository Secrets hinterlegt. Sobald der Key eingetragen ist, erscheinen hier automatisch die LH A320 Umläufe für FRA und MUC.";
-    return;
-  }
-
-  let totalAc = 0;
-  let drainCount = 0;
-  let heatCount = 0;
-
-  (fleetData.stations || []).forEach(st => {
-    if (currentFleetFilter === "FRA" && st.code !== "FRA") return;
-    if (currentFleetFilter === "MUC" && st.code !== "MUC") return;
-
-    let rows = st.aircraft || [];
-    if (currentFleetFilter === "CRITICAL_ONLY") {
-      rows = rows.filter(r => r.level === "red" || r.level === "yellow");
-    }
-
-    totalAc += rows.length;
-    drainCount += rows.filter(r => r.level === "red").length;
-    heatCount += rows.filter(r => r.level === "yellow").length;
-
-    const card = document.createElement("div");
-    card.className = "fleet-station-card";
-
-    const nightMinStr = isNumber(st.nightMin) ? `${st.nightMin.toFixed(1)} °C` : "--";
-
-    if (st.error) {
-      card.innerHTML = `
-        <div class="fleet-station-header">
-          <div>
-            <strong style="font-size:18px;">${st.code} (${st.icao}) – ${st.city}</strong>
-            <div style="color:var(--muted); font-size:12px;">Nacht-Min: ${nightMinStr}</div>
-          </div>
-        </div>
-        <div style="color:#fecaca; font-size:12px;">Fehler beim Abruf der Flugdaten: ${st.error}</div>
-      `;
-      container.appendChild(card);
-      return;
-    }
-
-    const tableRowsHtml = rows.length === 0
-      ? `<tr><td colspan="7" style="color:var(--muted); text-align:center; padding:18px;">Keine passenden LH A320 Umläufe im aktuellen Zeitfenster.</td></tr>`
-      : rows.map(ac => {
-          const groundStr = isNumber(ac.groundHours) ? `${ac.groundHours.toFixed(1)} h` : "Offen / Nightstop";
-          const tempStr = isNumber(ac.windowMinTemp) ? `${ac.windowMinTemp.toFixed(1)} °C` : "--";
-          const outboundStr = ac.outboundFlight
-            ? `${ac.outboundFlight} → ${ac.to} (${formatDateTime(ac.departureUtc)})`
-            : "Noch kein Weiterflug gelistet";
-
-          return `
-            <tr>
-              <td><span class="reg-badge">${ac.reg}</span></td>
-              <td>${ac.model}</td>
-              <td>${ac.inboundFlight} ex ${ac.from}<br><span style="color:var(--muted); font-size:11px;">${formatDateTime(ac.arrivalUtc)}</span></td>
-              <td>${outboundStr}</td>
-              <td><strong>${groundStr}</strong></td>
-              <td><strong>${tempStr}</strong></td>
-              <td>
-                <span class="action-pill ${ac.level}">${ac.recommendation}</span>
-                <div style="color:var(--muted); font-size:10px; margin-top:4px;">${ac.reason}</div>
-              </td>
-            </tr>
-          `;
-        }).join("");
-
-    card.innerHTML = `
-      <div class="fleet-station-header">
-        <div>
-          <strong style="font-size:18px;">✈ ${st.code} (${st.icao}) – ${st.city}</strong>
-          <div style="color:var(--muted); font-size:12px; margin-top:3px;">
-            Nacht-Minimum Station (20–06 Uhr): <strong>${nightMinStr}</strong> · Erfasste A320-Umläufe: <strong>${rows.length}</strong>
-          </div>
-        </div>
-      </div>
-
-      <div class="fleet-table-wrap">
-        <table class="fleet-table">
-          <thead>
-            <tr>
-              <th>Reg</th>
-              <th>Typ</th>
-              <th>Ankunft (Inbound)</th>
-              <th>Weiterflug (Outbound)</th>
-              <th>Standzeit</th>
-              <th>Min-Temp Standzeit</th>
-              <th>Empfehlung</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRowsHtml}
-          </tbody>
-        </table>
-      </div>
-    `;
-
-    container.appendChild(card);
-  });
-
-  summaryEl.textContent =
-    `Erfasste LH A320-Umläufe (FRA/MUC): ${totalAc} · ` +
-    `🔴 Drain empfohlen: ${drainCount} · ` +
-    `🟡 Heizen / Prüfen: ${heatCount} ` +
-    `(Stand: ${formatDateTime(fleetData.updatedAt)})`;
-}
-
-/* --------------------------------------------------------
-   Daten laden
--------------------------------------------------------- */
-
-async function loadAll() {
-  // 1. Wetter laden
+async function loadWeather() {
   try {
     const response = await fetch("./weather.json?t=" + Date.now(), { cache: "no-store" });
     if (!response.ok) throw new Error("Wetterdatei nicht verfügbar");
@@ -1058,23 +763,10 @@ async function loadAll() {
       render({ updatedAt: null, airports: [] });
     }
   }
-
-  // 2. Flotten- & Standzeitdaten (FRA/MUC) laden
-  try {
-    const fleetRes = await fetch("./fleet.json?t=" + Date.now(), { cache: "no-store" });
-    if (fleetRes.ok) {
-      const fleetJson = await fleetRes.json();
-      renderFleet(fleetJson);
-    } else {
-      renderFleet({ configured: false });
-    }
-  } catch {
-    renderFleet({ configured: false });
-  }
 }
 
-loadAll();
-setInterval(loadAll, 5 * 60 * 1000);
+loadWeather();
+setInterval(loadWeather, 5 * 60 * 1000);
 </script>
 
 </body>
