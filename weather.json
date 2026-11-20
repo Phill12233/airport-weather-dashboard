@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-20T18:08:31Z",
+  "updatedAt": "2026-11-20T19:13:23Z",
   "source": "Deutscher Wetterdienst POI und MOSMIX_L",
   "gasPathCleaningLimitC": 5.0,
   "nightWindowLocal": "20:00-06:00 Europe/Berlin",
@@ -837,15 +837,15 @@
       "code": "BER",
       "icao": "EDDB",
       "city": "Berlin Brandenburg",
-      "currentTemp": 0.5,
-      "currentTempTime": "2026-11-20T18:00:00Z",
-      "currentTempAgeHours": 0.1,
+      "currentTemp": -0.3,
+      "currentTempTime": "2026-11-20T19:00:00Z",
+      "currentTempAgeHours": 0.2,
       "min24h": -0.4,
       "min24hTime": "2026-11-21T00:00:00Z",
       "nightMin": -0.4,
       "nightMinTime": "2026-11-21T00:00:00Z",
-      "forecastStart": "2026-11-20T19:00:00Z",
-      "forecastEnd": "2026-11-24T18:00:00Z",
+      "forecastStart": "2026-11-20T20:00:00Z",
+      "forecastEnd": "2026-11-24T19:00:00Z",
       "gasPathCleaning": "NO GO",
       "weatherStatus": "WARNING",
       "measurementStation": {
@@ -860,10 +860,6 @@
         "longitude": 13.5033
       },
       "hourly": [
-        {
-          "time": "2026-11-20T19:00:00Z",
-          "temperature": 0.4
-        },
         {
           "time": "2026-11-20T20:00:00Z",
           "temperature": 0.2
@@ -1243,6 +1239,10 @@
         {
           "time": "2026-11-24T18:00:00Z",
           "temperature": 0.6
+        },
+        {
+          "time": "2026-11-24T19:00:00Z",
+          "temperature": 0.3
         }
       ],
       "errors": []
@@ -2079,17 +2079,17 @@
       "code": "STR",
       "icao": "EDDS",
       "city": "Stuttgart",
-      "currentTemp": 8.4,
-      "currentTempTime": "2026-11-20T17:00:00Z",
+      "currentTemp": 8.3,
+      "currentTempTime": "2026-11-20T19:00:00Z",
       "currentTempAgeHours": 0.2,
-      "min24h": 3.9,
-      "min24hTime": "2026-11-21T07:00:00Z",
-      "nightMin": 5.0,
-      "nightMinTime": "2026-11-21T05:00:00Z",
-      "forecastStart": "2026-11-20T18:00:00Z",
-      "forecastEnd": "2026-11-24T17:00:00Z",
-      "gasPathCleaning": "GO",
-      "weatherStatus": "SAFE",
+      "min24h": 2.7,
+      "min24hTime": "2026-11-21T19:00:00Z",
+      "nightMin": 2.7,
+      "nightMinTime": "2026-11-21T19:00:00Z",
+      "forecastStart": "2026-11-20T20:00:00Z",
+      "forecastEnd": "2026-11-24T19:00:00Z",
+      "gasPathCleaning": "NO GO",
+      "weatherStatus": "WATCH",
       "measurementStation": {
         "stationId": "10738",
         "name": "Stuttgart-Echterdingen (ICON)",
@@ -2102,14 +2102,6 @@
         "longitude": 9.2219
       },
       "hourly": [
-        {
-          "time": "2026-11-20T18:00:00Z",
-          "temperature": 8.8
-        },
-        {
-          "time": "2026-11-20T19:00:00Z",
-          "temperature": 8.6
-        },
         {
           "time": "2026-11-20T20:00:00Z",
           "temperature": 8.5
@@ -2485,6 +2477,14 @@
         {
           "time": "2026-11-24T17:00:00Z",
           "temperature": -0.4
+        },
+        {
+          "time": "2026-11-24T18:00:00Z",
+          "temperature": -0.9
+        },
+        {
+          "time": "2026-11-24T19:00:00Z",
+          "temperature": -1.4
         }
       ],
       "errors": []
